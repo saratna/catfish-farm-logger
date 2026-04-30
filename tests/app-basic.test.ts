@@ -28,4 +28,13 @@ describe("Catfish Farm Logger implementation", () => {
     expect(records).toContain("Avg weight g");
     expect(records).toContain("Add photo");
   });
+
+  it("includes EAS configuration for iOS production builds", () => {
+    const eas = JSON.parse(read("eas.json"));
+    const packageJson = JSON.parse(read("package.json"));
+    expect(eas.cli.appVersionSource).toBe("local");
+    expect(eas.build.production.env.EAS_BUILD_NO_EXPO_GO_WARNING).toBe("true");
+    expect(eas.build.production.ios.simulator).toBe(false);
+    expect(packageJson.scripts["build:ios"]).toContain("eas build --platform ios");
+  });
 });

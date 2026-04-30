@@ -12,3 +12,6 @@
 - [x] ローカル通知またはアプリ内リマインダーによる日次検査促進
 - [x] アプリ名・配色・アイコンのブランド設定
 - [x] TypeScriptチェックと基本テストの実行
+- [x] iOS公開向けにeas.json、appVersionSource、iOSビルドスクリプトを追加
+- [ ] Expoアカウントでeas initを実行してEAS projectIdをリンク
+- [x] EAS設定のTypeScriptチェックと基本テスト再実行
