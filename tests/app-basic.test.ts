@@ -37,4 +37,14 @@ describe("Catfish Farm Logger implementation", () => {
     expect(eas.build.production.ios.simulator).toBe(false);
     expect(packageJson.scripts["build:ios"]).toContain("eas build --platform ios");
   });
+
+  it("includes Android-first Google Play build and OAuth configuration", () => {
+    const config = read("app.config.ts");
+    const packageJson = JSON.parse(read("package.json"));
+    expect(config).toContain("googleAndroidReversedClientId");
+    expect(config).toContain("VITE_GOOGLE_ANDROID_OAUTH_CLIENT_ID");
+    expect(config).toContain("versionCode: 1");
+    expect(packageJson.scripts["build:android"]).toContain("eas build --platform android");
+    expect(packageJson.scripts["submit:android"]).toContain("eas submit --platform android");
+  });
 });

@@ -2,12 +2,14 @@ import * as Crypto from "expo-crypto";
 import * as FileSystem from "expo-file-system/legacy";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
+import { Platform } from "react-native";
 
 import type { DriveExport, FishPhoto } from "@/lib/farm-store";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_CLIENT_ID = process.env.VITE_GOOGLE_OAUTH_CLIENT_ID ?? "";
+const GOOGLE_IOS_CLIENT_ID = process.env.VITE_GOOGLE_OAUTH_CLIENT_ID ?? "";
+const GOOGLE_ANDROID_CLIENT_ID = process.env.VITE_GOOGLE_ANDROID_OAUTH_CLIENT_ID ?? "";
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const TOKEN_STORAGE_KEY = "catfish-farm-google-drive-token-v1";
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -27,17 +29,23 @@ export type GoogleDriveSyncResult = {
   uploadedPhotoCount: number;
 };
 
+function getPlatformGoogleOAuthClientId() {
+  if (Platform.OS === "android") return GOOGLE_ANDROID_CLIENT_ID || GOOGLE_IOS_CLIENT_ID;
+  return GOOGLE_IOS_CLIENT_ID;
+}
+
 function assertClientId() {
-  if (!GOOGLE_CLIENT_ID) {
-    throw new Error("Google OAuth client ID is not configured. Please set VITE_GOOGLE_OAUTH_CLIENT_ID before building the app.");
+  const clientId = getPlatformGoogleOAuthClientId();
+  if (!clientId) {
+    throw new Error("Google OAuth client ID is not configured. Set VITE_GOOGLE_ANDROID_OAUTH_CLIENT_ID for Android or VITE_GOOGLE_OAUTH_CLIENT_ID for iOS before building the app.");
   }
 }
 
 export function getGoogleOAuthClientId() {
-  return GOOGLE_CLIENT_ID;
+  return getPlatformGoogleOAuthClientId();
 }
 
-export function getGoogleReversedClientId(clientId = GOOGLE_CLIENT_ID) {
+export function getGoogleReversedClientId(clientId = getPlatformGoogleOAuthClientId()) {
   assertClientId();
   return clientId.replace(/\.apps\.googleusercontent\.com$/, "").split(".").reverse().join(".");
 }
@@ -78,7 +86,7 @@ export async function clearGoogleDriveTokens() {
 
 async function exchangeCodeForTokens(code: string, verifier: string) {
   const body = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: getGoogleOAuthClientId(),
     code,
     code_verifier: verifier,
     grant_type: "authorization_code",
@@ -109,7 +117,7 @@ async function refreshAccessToken(tokenSet: GoogleDriveTokenSet) {
   if (!tokenSet.refreshToken) return tokenSet;
 
   const body = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: getGoogleOAuthClientId(),
     grant_type: "refresh_token",
     refresh_token: tokenSet.refreshToken,
   });
@@ -149,7 +157,7 @@ export async function connectGoogleDrive() {
   const state = Crypto.randomUUID();
   const redirectUri = getGoogleRedirectUri();
   const authUrl = new URL(AUTH_ENDPOINT);
-  authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+  authUrl.searchParams.set("client_id", getGoogleOAuthClientId());
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("scope", DRIVE_SCOPE);

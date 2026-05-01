@@ -24,3 +24,8 @@
 - [x] Google Drive APIへ検査・給餌・写真データをアップロードする同期処理を実装
 - [x] Google Drive実同期設定のテストと基本検証を実行
 - [x] Manus管理環境で実行する作業と、Google/Expoアカウント上でユーザーが操作する作業の切り分けを文書化
+- [x] Android公開優先に合わせてGoogle Play向け設定を確認・調整
+- [x] Android用Google OAuthクライアントに必要なパッケージ名とSHA-1取得手順を文書化
+- [x] Google Play Console公開向けのストア掲載情報と素材一覧を作成
+- [x] Android向けビルド・公開手順をGoogle Play前提で整理
+- [x] Android優先変更後のTypeScriptチェックとVitestを実行
