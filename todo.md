@@ -15,3 +15,12 @@
 - [x] iOS公開向けにeas.json、appVersionSource、iOSビルドスクリプトを追加
 - [ ] Expoアカウントでeas initを実行してEAS projectIdをリンク
 - [x] EAS設定のTypeScriptチェックと基本テスト再実行
+- [x] App Store用スクリーンショット素材を作成
+- [x] App Store審査・掲載用の説明文とメタデータ案を作成
+- [x] TestFlight配布向けのEAS submit/profile設定を追加
+- [x] TestFlight配布手順ドキュメントを追加
+- [x] Google OAuth認証をアプリに組み込む
+- [x] Google Drive APIで水槽別フォルダを作成・検索する処理を実装
+- [x] Google Drive APIへ検査・給餌・写真データをアップロードする同期処理を実装
+- [x] Google Drive実同期設定のテストと基本検証を実行
+- [x] Manus管理環境で実行する作業と、Google/Expoアカウント上でユーザーが操作する作業の切り分けを文書化
