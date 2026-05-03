@@ -182,7 +182,7 @@ export default function SyncScreen() {
         renderItem={({ item }) => (
           <View className="mb-3 rounded-3xl border border-border bg-surface p-5">
             <Text className="text-lg font-bold text-foreground">{item.folder}</Text>
-            <Text className="mt-2 text-sm text-muted">{item.inspections.length} inspections, {item.feedings.length} feedings, {item.photos.length} photos</Text>
+            <Text className="mt-2 text-sm text-muted">{item.inspections.length} inspections, {item.feedings.length} feedings, {item.photos.length} photos, {item.costEntries.length} costs, {item.saleRecords.length} sales</Text>
             <View className="mt-3 rounded-2xl bg-background p-3">
               {item.files.map((file) => (
                 <Text key={file} className="py-1 text-sm text-foreground">/{file}</Text>

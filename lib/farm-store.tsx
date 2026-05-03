@@ -82,6 +82,35 @@ export type PhotoAssessmentRecord = {
   synced: boolean;
 };
 
+export type FarmCostCategory = "seed_stock" | "feed" | "labor" | "electricity" | "water" | "medicine" | "maintenance" | "other";
+
+export type FarmCostEntry = {
+  id: string;
+  tankId?: string;
+  createdAt: string;
+  category: FarmCostCategory;
+  label: string;
+  amount: number;
+  quantity?: number;
+  unit?: string;
+  vendor?: string;
+  notes: string;
+  synced: boolean;
+};
+
+export type FarmSaleRecord = {
+  id: string;
+  tankId?: string;
+  createdAt: string;
+  buyer: string;
+  productGrade: string;
+  quantityKg: number;
+  unitPrice: number;
+  totalAmount: number;
+  notes: string;
+  synced: boolean;
+};
+
 export type FarmLocation = {
   latitude: number;
   longitude: number;
@@ -154,6 +183,8 @@ type FarmState = {
   photos: FishPhoto[];
   growthMeasurements: GrowthMeasurement[];
   photoAssessments: PhotoAssessmentRecord[];
+  costEntries: FarmCostEntry[];
+  saleRecords: FarmSaleRecord[];
   location?: FarmLocation;
   weatherRecords: WeatherRecord[];
   riskAlerts: RiskAlert[];
@@ -171,6 +202,8 @@ type FarmAction =
   | { type: "addPhoto"; payload: FishPhoto }
   | { type: "addGrowthMeasurement"; payload: GrowthMeasurement }
   | { type: "addPhotoAssessment"; payload: PhotoAssessmentRecord }
+  | { type: "addCostEntry"; payload: FarmCostEntry }
+  | { type: "addSaleRecord"; payload: FarmSaleRecord }
   | { type: "setLocation"; payload: FarmLocation }
   | { type: "addWeatherRecord"; payload: WeatherRecord }
   | { type: "replaceRiskAlerts"; payload: RiskAlert[] }
@@ -200,6 +233,8 @@ const defaultState: FarmState = {
   photos: [],
   growthMeasurements: [],
   photoAssessments: [],
+  costEntries: [],
+  saleRecords: [],
   weatherRecords: [],
   riskAlerts: [],
   feedProducts: [
@@ -246,6 +281,10 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
       return { ...state, growthMeasurements: [action.payload, ...state.growthMeasurements], sync: waitingSync("Growth measurement saved locally") };
     case "addPhotoAssessment":
       return { ...state, photoAssessments: [action.payload, ...state.photoAssessments], sync: waitingSync("Photo assessment saved locally") };
+    case "addCostEntry":
+      return { ...state, costEntries: [action.payload, ...state.costEntries], sync: waitingSync("Cost entry saved locally") };
+    case "addSaleRecord":
+      return { ...state, saleRecords: [action.payload, ...state.saleRecords], sync: waitingSync("Sale record saved locally") };
     case "setLocation":
       return { ...state, location: action.payload, sync: waitingSync("GPS location saved locally") };
     case "addWeatherRecord":
@@ -266,6 +305,8 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
         photos: state.photos.map((item) => ({ ...item, synced: true })),
         growthMeasurements: state.growthMeasurements.map((item) => ({ ...item, synced: true })),
         photoAssessments: state.photoAssessments.map((item) => ({ ...item, synced: true })),
+        costEntries: state.costEntries.map((item) => ({ ...item, synced: true })),
+        saleRecords: state.saleRecords.map((item) => ({ ...item, synced: true })),
         weatherRecords: state.weatherRecords.map((item) => ({ ...item, synced: true })),
         riskAlerts: state.riskAlerts.map((item) => ({ ...item, synced: true })),
         feedProducts: state.feedProducts.map((item) => ({ ...item, synced: true })),
@@ -303,6 +344,8 @@ type FarmContextValue = FarmState & {
   addPhoto: (input: Omit<FishPhoto, "id" | "createdAt" | "synced">) => void;
   addGrowthMeasurement: (input: Omit<GrowthMeasurement, "id" | "createdAt" | "synced">) => void;
   addPhotoAssessment: (input: Omit<PhotoAssessmentRecord, "id" | "createdAt" | "synced">) => void;
+  addCostEntry: (input: Omit<FarmCostEntry, "id" | "createdAt" | "synced">) => void;
+  addSaleRecord: (input: Omit<FarmSaleRecord, "id" | "createdAt" | "synced" | "totalAmount"> & { totalAmount?: number }) => void;
   setLocation: (input: Omit<FarmLocation, "updatedAt">) => void;
   addWeatherRecord: (input: Omit<WeatherRecord, "id" | "createdAt" | "synced">) => void;
   replaceRiskAlerts: (input: Array<Omit<RiskAlert, "id" | "createdAt" | "acknowledged" | "synced">>) => void;
@@ -320,6 +363,8 @@ export type DriveExport = {
   weatherRecords: WeatherRecord[];
   riskAlerts: RiskAlert[];
   feedProducts: FeedProduct[];
+  costEntries: FarmCostEntry[];
+  saleRecords: FarmSaleRecord[];
   tanks: Array<{
     folder: string;
     tank: Tank;
@@ -328,6 +373,8 @@ export type DriveExport = {
     photos: FishPhoto[];
     growthMeasurements: GrowthMeasurement[];
     photoAssessments: PhotoAssessmentRecord[];
+    costEntries: FarmCostEntry[];
+    saleRecords: FarmSaleRecord[];
     files: string[];
   }>;
 };
@@ -367,10 +414,12 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       state.photos.filter((item) => !item.synced).length +
       state.growthMeasurements.filter((item) => !item.synced).length +
       state.photoAssessments.filter((item) => !item.synced).length +
+      state.costEntries.filter((item) => !item.synced).length +
+      state.saleRecords.filter((item) => !item.synced).length +
       state.weatherRecords.filter((item) => !item.synced).length +
       state.riskAlerts.filter((item) => !item.synced).length +
       state.feedProducts.filter((item) => !item.synced).length,
-    [state.inspections, state.feedings, state.photos, state.growthMeasurements, state.photoAssessments, state.weatherRecords, state.riskAlerts, state.feedProducts],
+    [state.inspections, state.feedings, state.photos, state.growthMeasurements, state.photoAssessments, state.costEntries, state.saleRecords, state.weatherRecords, state.riskAlerts, state.feedProducts],
   );
 
   const todaysMissingTankIds = useMemo(
@@ -403,6 +452,15 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
 
   const addPhotoAssessment = useCallback((input: Omit<PhotoAssessmentRecord, "id" | "createdAt" | "synced">) => {
     dispatch({ type: "addPhotoAssessment", payload: { id: createId("assessment"), createdAt: nowIso(), synced: false, ...input } });
+  }, []);
+
+  const addCostEntry = useCallback((input: Omit<FarmCostEntry, "id" | "createdAt" | "synced">) => {
+    dispatch({ type: "addCostEntry", payload: { id: createId("cost"), createdAt: nowIso(), synced: false, ...input } });
+  }, []);
+
+  const addSaleRecord = useCallback((input: Omit<FarmSaleRecord, "id" | "createdAt" | "synced" | "totalAmount"> & { totalAmount?: number }) => {
+    const totalAmount = input.totalAmount ?? input.quantityKg * input.unitPrice;
+    dispatch({ type: "addSaleRecord", payload: { id: createId("sale"), createdAt: nowIso(), synced: false, ...input, totalAmount } });
   }, []);
 
   const setLocation = useCallback((input: Omit<FarmLocation, "updatedAt">) => {
@@ -444,6 +502,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       weatherRecords: state.weatherRecords,
       riskAlerts: state.riskAlerts,
       feedProducts: state.feedProducts,
+      costEntries: state.costEntries,
+      saleRecords: state.saleRecords,
       tanks: state.tanks.map((tank) => {
         const safeName = tank.name.replace(/[^a-zA-Z0-9_-]+/g, "_");
         return {
@@ -454,7 +514,9 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
           photos: state.photos.filter((item) => item.tankId === tank.id),
           growthMeasurements: state.growthMeasurements.filter((item) => item.tankId === tank.id),
           photoAssessments: state.photoAssessments.filter((item) => item.tankId === tank.id),
-          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
+          costEntries: state.costEntries.filter((item) => item.tankId === tank.id),
+          saleRecords: state.saleRecords.filter((item) => item.tankId === tank.id),
+          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
         };
       }),
     };
@@ -473,6 +535,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       addPhoto,
       addGrowthMeasurement,
       addPhotoAssessment,
+      addCostEntry,
+      addSaleRecord,
       setLocation,
       addWeatherRecord,
       replaceRiskAlerts,
@@ -482,7 +546,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       markSynced,
       generateDrivePayload,
     }),
-    [state, pendingSyncCount, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, addGrowthMeasurement, addPhotoAssessment, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, generateDrivePayload],
+    [state, pendingSyncCount, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, addGrowthMeasurement, addPhotoAssessment, addCostEntry, addSaleRecord, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, generateDrivePayload],
   );
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>;

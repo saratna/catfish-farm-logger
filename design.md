@@ -145,3 +145,42 @@ Google Driveへの直接自動アップロードは、Androidアプリ側でGoog
 [5]: https://extension.msstate.edu/agriculture/catfish/catfish-feeds-and-feeding "Mississippi State University Extension — Catfish Feeds and Feeding"
 [6]: https://ask.ifas.ufl.edu/publication/FA004 "UF/IFAS Extension — Introduction to Fish Health Management"
 [7]: https://srac.msstate.edu/pdfs/Fact%20Sheets/477%20Enteric%20Septicemia%20of%20Catfish.pdf "SRAC Publication No. 477 — Enteric Septicemia of Catfish"
+
+## 世界知見・養殖経営管理の追加設計
+
+この追加機能では、秋篠宮皇嗣殿下の東南アジア産ナマズ研究、フィリピン政府機関、SEAFDEC/AQD、FAO、USDA ARS、Mississippi State University Extension などの一次資料・公的資料を、アプリ内の**出典付き知見カード**として整理する。知見カードは、病気・成長・種苗・給餌・経営の各画面で、現場判断の補助として短く表示する。特定の病名や収益性を断定せず、記録されたデータと出典に基づき「次に確認すべきこと」を提示する。
+
+| 追加画面 | 主な内容 | 主な操作 |
+|---|---|---|
+| 知見ライブラリ | 秋篠宮皇嗣殿下関連研究、BFAR、PCAARRD、SEAFDEC、FAO、USDA、MSUの要点と出典 | 分野別フィルタ、出典確認、関連記録画面へ移動 |
+| 収支ダッシュボード | 総費用、売上、粗利益、利益率、kgあたり費用、kgあたり利益 | 期間切替、費用追加、販売追加 |
+| 費用入力 | 稚魚代、餌代、人件費、電気代、水道代、薬剤費、設備費、その他費用 | 水槽選択、金額・数量・単価入力、保存 |
+| 販売入力 | 販売日、販売重量kg、販売尾数、販売単価、販売先、メモ | 売上記録保存、粗利益再計算 |
+| 収支履歴 | 月別・水槽別の費用と売上、利益推移 | 履歴確認、記録編集の入口 |
+
+収支ダッシュボードは、屋外の現場でも一目で状況が分かるように、上部に「今月の粗利益」「kgあたり費用」「kgあたり利益」を大きく表示する。費用と販売は別々に入力できるが、同じ水槽IDと期間で集計し、成長測定や給餌履歴と突き合わせられる構造にする。価格変動が重要課題であるため、販売単価の履歴を残し、同じ出荷重量でも利益が変動することを見える化する。
+
+| 追加データ | ローカル保存内容 | Drive上の想定配置 |
+|---|---|---|
+| 知見カード | ID、分類、題名、要点、出典名、URL、適用画面、注意書き | `/CatfishFarmLogger/knowledge-library.json` |
+| 費用記録 | ID、水槽ID、日付、費目、数量、単位、単価、金額、通貨、メモ | `/CatfishFarmLogger/{tankName}/costs.json` |
+| 販売記録 | ID、水槽ID、日付、販売重量kg、販売尾数、販売単価、売上、販売先、メモ | `/CatfishFarmLogger/{tankName}/sales.json` |
+| 収支集計 | 対象期間、水槽ID、総費用、売上、粗利益、利益率、kgあたり費用、kgあたり利益 | `/CatfishFarmLogger/{tankName}/profit-summary.json` |
+
+| 追加フロー | 手順 | 完了状態 |
+|---|---|---|
+| 費用記録 | 収支タブ → 費用追加 → 費目選択 → 数量・単価または金額入力 → 保存 | 費用履歴と収支ダッシュボードが更新される |
+| 販売記録 | 収支タブ → 販売追加 → 重量・尾数・単価入力 → 保存 | 売上と粗利益が再計算される |
+| 収支確認 | 収支タブ → 期間選択 → 総費用・売上・利益確認 | 期間別の採算性が分かる |
+| 知見確認 | ホームまたは知見タブ → 分野を選択 → 出典付き要点を確認 | 関連する記録項目の確認・入力へ進める |
+
+## References for global knowledge/profit feature
+
+[8]: https://www.yamashina.or.jp/hp/gaiyo/staff/sosai/100101.html "山階鳥類研究所 — 自然史研究機関としての山階鳥類研究所"
+[9]: https://so04.tci-thaijo.org/index.php/nhbss/article/view/170006 "Natural History Bulletin of the Siam Society — Morphological Development of Hatchery-Reared Larval and Juvenile Mekong Giant Catfish"
+[10]: https://www.bfar.da.gov.ph/2024/11/11/da-bfar-hosts-1st-national-catfish-dialogue-to-propel-the-catfish-industry-in-the-philippines/ "DA-BFAR — 1st National Catfish Dialogue"
+[11]: https://www.pcaarrd.dost.gov.ph/index.php/quick-information-dispatch-qid-articles/program-to-boost-catfish-industry "DOST-PCAARRD — Program to boost catfish industry"
+[12]: https://www.seafdec.org.ph/catfish/ "SEAFDEC/AQD — Farming Catfish"
+[13]: https://openknowledge.fao.org/handle/20.500.14283/ak505e "FAO — Manual on catfish hatchery and production"
+[14]: https://www.ars.usda.gov/research/project/?accnNo=448257 "USDA ARS — Maximizing Profitability and Fish Health in Catfish Aquaculture"
+[15]: https://extension.msstate.edu/agriculture/catfish/diseases "MSU Extension — Catfish Diseases"

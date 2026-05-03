@@ -51,6 +51,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="finance"
+        options={{
+          title: "Finance",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="yensign.circle.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="sync"
         options={{
           title: "Sync",

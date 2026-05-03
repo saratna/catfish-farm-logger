@@ -107,4 +107,27 @@ describe("Catfish Farm Logger implementation", () => {
     expect(screening.visibleSigns).toContain("潰瘍・傷");
     expect(screening.disclaimer).toContain("確定診断ではありません");
   });
+  it("calculates economics summary from costs and sales", async () => {
+    const { calculateEconomicsSummary } = await import("../lib/economics");
+    const summary = calculateEconomicsSummary(
+      [
+        { id: "c1", createdAt: "2026-01-01", category: "feed", label: "Feed", amount: 12000, notes: "", synced: false },
+        { id: "c2", createdAt: "2026-01-02", category: "electricity", label: "Power", amount: 3000, notes: "", synced: false },
+      ],
+      [{ id: "s1", createdAt: "2026-01-03", buyer: "Market", productGrade: "Live", quantityKg: 20, unitPrice: 900, totalAmount: 18000, notes: "", synced: false }],
+    );
+
+    expect(summary.totalCost).toBe(15000);
+    expect(summary.totalSales).toBe(18000);
+    expect(summary.grossProfit).toBe(3000);
+    expect(summary.costPerKgSold).toBe(750);
+    expect(summary.topCostCategory).toBe("feed");
+  });
+
+  it("keeps research knowledge cards tied to source URLs", async () => {
+    const { catfishKnowledgeCards } = await import("../lib/catfish-knowledge");
+    expect(catfishKnowledgeCards.length).toBeGreaterThanOrEqual(5);
+    expect(catfishKnowledgeCards.every((card: { sourceUrl: string }) => card.sourceUrl.startsWith("https://"))).toBe(true);
+  });
+
 });

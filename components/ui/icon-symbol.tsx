@@ -22,6 +22,7 @@ const MAPPING = {
   "arrow.triangle.2.circlepath": "sync",
   "gearshape.fill": "settings",
   "cloud.rain.fill": "thunderstorm",
+  "yensign.circle.fill": "payments",
 } as IconMapping;
 
 /**
