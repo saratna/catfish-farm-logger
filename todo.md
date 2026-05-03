@@ -63,3 +63,8 @@
 - [x] 経営アラート発生時に実行すべき改善チェックリストを表示する
 - [x] 月次推移、採算ランキング、改善チェックリストをGoogle Driveエクスポートへ含める
 - [x] 月次推移、採算ランキング、改善チェックリストの自動テストを追加する
+- [x] Convert all user-facing app UI text to English for use in the Philippines
+- [x] Confirm the app is offline-first and keeps farm data on the phone through AsyncStorage
+- [x] Add automatic upload/sync behavior when internet connectivity returns
+- [x] Add a visible warning when data has not been uploaded for a long time
+- [x] Add tests for English UI text, offline-first messaging, auto-sync readiness, and stale-sync warnings

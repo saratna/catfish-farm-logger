@@ -110,6 +110,8 @@ export default function SyncScreen() {
 
     try {
       setBusyAction("upload");
+      const attemptAt = new Date().toISOString();
+      farm.setSyncStatus({ ...farm.sync, status: "syncing", lastAttemptAt: attemptAt, message: "Manual upload started. Records remain stored locally until the upload finishes." });
       const result = await uploadFarmExportToGoogleDrive(drivePayload);
       farm.markSynced();
       Alert.alert(
@@ -117,6 +119,7 @@ export default function SyncScreen() {
         `${result.uploadedFileCount} JSON files and ${result.uploadedPhotoCount} photos were uploaded to Drive folder ID ${result.rootFolderId}.`,
       );
     } catch (error) {
+      farm.setSyncStatus({ ...farm.sync, status: "failed", lastAttemptAt: new Date().toISOString(), message: error instanceof Error ? `Upload failed: ${error.message}` : "Upload failed. Records remain safely stored on this phone." });
       Alert.alert("Google Drive sync failed", error instanceof Error ? error.message : "The Drive upload did not complete.");
     } finally {
       setBusyAction(null);
@@ -133,7 +136,7 @@ export default function SyncScreen() {
           <View className="pb-4">
             <Text className="text-3xl font-extrabold text-foreground">Google Drive Sync</Text>
             <Text className="mt-1 text-base leading-6 text-muted">
-              Records stay local first. After Google authorization, the app uploads tank JSON files and photos into a per-tank folder structure in your Drive.
+              Built for field use in the Philippines: records stay on this phone first, and the app auto-uploads to Google Drive when a stable internet connection returns.
             </Text>
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
               <View className="flex-row items-center justify-between gap-3">
@@ -154,6 +157,16 @@ export default function SyncScreen() {
                   <Text className="mt-1 text-sm font-semibold text-foreground">{formatShortDate(farm.sync.lastSyncAt)}</Text>
                 </View>
               </View>
+              <View className="mt-3 rounded-2xl bg-background p-3">
+                <Text className="text-xs text-muted">Automatic upload</Text>
+                <Text className="mt-1 font-semibold text-foreground">{farm.settings.autoSyncEnabled ? "Enabled when internet returns" : "Disabled in settings"}</Text>
+              </View>
+              {farm.hasStaleSyncWarning ? (
+                <View className="mt-3 rounded-2xl border border-warning bg-background p-3">
+                  <Text className="font-bold text-warning">Upload is overdue</Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted">This phone has farm data that has not been uploaded for {farm.syncAgeDays === null ? `more than ${farm.settings.staleSyncWarningDays} days` : `${farm.syncAgeDays} days`}. Keep entering records offline, then connect to the internet to upload.</Text>
+                </View>
+              ) : null}
               <Text className="mt-4 text-sm leading-5 text-muted">{farm.sync.message}</Text>
             </View>
             <View className="mt-4 flex-row gap-3">
@@ -193,7 +206,7 @@ export default function SyncScreen() {
         ListFooterComponent={
           <View className="pb-8 pt-2">
             <Text className="text-xs leading-5 text-muted">
-              Google Drive uses the least broad app-file scope, so this app can create and manage files it uploads without gaining general access to all Drive files.
+              Offline-first behavior: farm records, photos, costs, sales, weather records, alerts, and sync status are kept on the phone. Google Drive is used only for upload backup after authorization and connectivity are available.
             </Text>
           </View>
         }

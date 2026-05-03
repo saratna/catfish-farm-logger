@@ -95,8 +95,8 @@ export function summarizeSeverity(items: RiskAssessment[]) {
   const main = items.find((item) => item.severity === severity) ?? items[0];
   return {
     severity,
-    title: main?.title ?? "通常監視",
-    summary: main?.reason ?? "大きな気象リスクは検出されていません。水温と溶存酸素は通常どおり確認してください。",
+    title: main?.title ?? "Routine monitoring",
+    summary: main?.reason ?? "No major weather-related risk has been detected. Continue checking water temperature and dissolved oxygen as usual.",
   };
 }
 
@@ -106,89 +106,35 @@ export function assessCatfishWeatherRisk(weather: AdvisoryWeatherInput, inspecti
   const effectiveTemp = waterTemp ?? weather.airTempC;
 
   if (typeof effectiveTemp === "number" && effectiveTemp >= 34) {
-    risks.push({
-      severity: "danger",
-      category: "heat",
-      title: "高温リスク",
-      reason: "気温または水温が高く、溶存酸素低下と摂餌不良が起きやすい条件です。",
-      action: "早朝に溶存酸素を測定し、過剰給餌を避け、必要なら曝気を強めてください。",
-    });
+    risks.push({ severity: "danger", category: "heat", title: "High heat risk", reason: "Air or water temperature is high, which can reduce dissolved oxygen and weaken feeding response.", action: "Measure dissolved oxygen early in the morning, avoid overfeeding, and increase aeration if available." });
   } else if (typeof effectiveTemp === "number" && effectiveTemp >= 30) {
-    risks.push({
-      severity: "watch",
-      category: "heat",
-      title: "暑熱注意",
-      reason: "高めの温度で酸素需要が増えます。水質悪化時はナマズのストレスが増える可能性があります。",
-      action: "水温、溶存酸素、残餌を確認して給餌量を控えめに調整してください。",
-    });
+    risks.push({ severity: "watch", category: "heat", title: "Heat watch", reason: "Warm conditions increase oxygen demand. Catfish stress may rise when water quality declines.", action: "Check water temperature, dissolved oxygen, and leftover feed before adjusting the feed amount." });
   }
 
   if (typeof weather.rainMm24h === "number" && weather.rainMm24h >= 50) {
-    risks.push({
-      severity: "danger",
-      category: "rain",
-      title: "強雨後の水質変化",
-      reason: "強い雨で池の濁り、pH変化、流入水による水質変化が起きる可能性があります。",
-      action: "雨後にpH、濁り、溶存酸素を確認し、魚が水面に集まる場合は早急に対応してください。",
-    });
+    risks.push({ severity: "danger", category: "rain", title: "Water quality shift after heavy rain", reason: "Heavy rain can cause turbidity, pH shifts, and inflow-related water quality changes.", action: "After rain, check pH, turbidity, and dissolved oxygen. Act quickly if fish gather at the surface." });
   } else if (typeof weather.rainMm24h === "number" && weather.rainMm24h >= 20) {
-    risks.push({
-      severity: "watch",
-      category: "rain",
-      title: "雨量注意",
-      reason: "まとまった雨が予想または記録されています。池の水質変動に注意が必要です。",
-      action: "雨後の観察メモを残し、給餌前に食いつきと水の状態を確認してください。",
-    });
+    risks.push({ severity: "watch", category: "rain", title: "Rainfall watch", reason: "Meaningful rainfall is forecast or recorded. Pond water quality can change quickly.", action: "Keep an observation note after rain and check appetite and water condition before feeding." });
   }
 
   if (typeof weather.pressureTrendHpa === "number" && weather.pressureTrendHpa <= -5) {
-    risks.push({
-      severity: "watch",
-      category: "pressure",
-      title: "気圧低下",
-      reason: "気圧が短時間で下がると天候急変や溶存酸素低下の確認が必要になります。",
-      action: "給餌前に魚の浮上、遊泳、食いつきを観察し、異常があれば給餌を減らしてください。",
-    });
+    risks.push({ severity: "watch", category: "pressure", title: "Falling pressure", reason: "A short-term pressure drop can signal changing weather and the need to watch dissolved oxygen.", action: "Before feeding, observe surfacing, swimming behavior, and appetite. Reduce feed if anything looks abnormal." });
   }
 
   if (typeof weather.humidityPercent === "number" && typeof weather.airTempC === "number" && weather.humidityPercent >= 90 && weather.airTempC >= 30) {
-    risks.push({
-      severity: "watch",
-      category: "humidity",
-      title: "蒸し暑さ注意",
-      reason: "高温多湿で水温が下がりにくく、夜間から早朝の酸素不足に注意が必要です。",
-      action: "早朝の溶存酸素を優先して測り、残餌を出さない量に調整してください。",
-    });
+    risks.push({ severity: "watch", category: "humidity", title: "Hot and humid conditions", reason: "High heat and humidity can keep water temperature elevated and increase early-morning oxygen risk.", action: "Prioritize early-morning dissolved oxygen checks and feed only an amount that leaves no residue." });
   }
 
   if (typeof inspection?.dissolvedOxygen === "number" && inspection.dissolvedOxygen < 4) {
-    risks.push({
-      severity: "danger",
-      category: "water",
-      title: "溶存酸素不足",
-      reason: "溶存酸素が低く、ナマズのストレスや斃死リスクが高まる恐れがあります。",
-      action: "給餌を止め、曝気や換水など現場の安全手順に従ってください。",
-    });
+    risks.push({ severity: "danger", category: "water", title: "Low dissolved oxygen", reason: "Dissolved oxygen is low, raising stress and mortality risk for catfish.", action: "Stop feeding and follow the farm safety procedure for aeration, water exchange, or emergency response." });
   }
 
   if (typeof inspection?.ammonia === "number" && inspection.ammonia > 0.5) {
-    risks.push({
-      severity: "watch",
-      category: "water",
-      title: "アンモニア注意",
-      reason: "アンモニアが高めです。高温・高pH条件では毒性が強まりやすくなります。",
-      action: "給餌量を控え、pHと水温を合わせて再確認してください。",
-    });
+    risks.push({ severity: "watch", category: "water", title: "Ammonia watch", reason: "Ammonia is elevated. Toxicity can rise under warm and high-pH conditions.", action: "Reduce feeding and re-check pH and water temperature together with ammonia." });
   }
 
   if (risks.length === 0) {
-    risks.push({
-      severity: "normal",
-      category: "water",
-      title: "通常監視",
-      reason: "現在の入力値からは大きな気象由来リスクは検出されていません。",
-      action: "日次の水温、pH、溶存酸素、食いつき確認を続けてください。",
-    });
+    risks.push({ severity: "normal", category: "water", title: "Routine monitoring", reason: "No major weather-driven risk is detected from the current inputs.", action: "Continue daily checks for water temperature, pH, dissolved oxygen, and appetite." });
   }
 
   return risks;
@@ -204,9 +150,9 @@ function baseFeedRatePercent(temp?: number) {
 }
 
 function targetProteinRange(weightG: number) {
-  if (weightG < 50) return { min: 35, max: 40, label: "稚魚期は高タンパク質の餌を優先" };
-  if (weightG < 200) return { min: 30, max: 36, label: "成長期は30〜36%程度を目安" };
-  return { min: 28, max: 34, label: "大型魚は過剰タンパクを避け水質を見ながら調整" };
+  if (weightG < 50) return { min: 35, max: 40, label: "Prioritize high-protein feed for fry" };
+  if (weightG < 200) return { min: 30, max: 36, label: "Use roughly 30-36% protein during grow-out" };
+  return { min: 28, max: 34, label: "For larger fish, avoid excessive protein and adjust based on water quality" };
 }
 
 export function buildFeedingAdvice(input: FeedingAdviceInput): FeedingAdvice {
@@ -216,66 +162,52 @@ export function buildFeedingAdvice(input: FeedingAdviceInput): FeedingAdvice {
 
   if (input.residualFeed === "much") {
     rate *= 0.65;
-    cautions.push("残餌が多いため、次回は給餌量を減らし水質を確認してください。");
+    cautions.push("Because leftover feed is high, reduce the next feeding and check water quality.");
   } else if (input.appetite === "poor") {
     rate *= 0.75;
-    cautions.push("食いつきが弱いため、病気・低酸素・水温変化を確認してください。");
+    cautions.push("Because appetite is weak, check for disease, low oxygen, or water temperature change.");
   } else if (input.appetite === "strong" && input.residualFeed === "none") {
     rate *= 1.05;
   }
 
   if ((input.weather?.rainMm24h ?? 0) >= 20) {
     rate *= 0.85;
-    cautions.push("雨後は水質変化が起こりやすいため、給餌は控えめにしてください。");
+    cautions.push("After rain, feed conservatively because water quality can shift quickly.");
   }
 
   if ((input.inspection?.dissolvedOxygen ?? 99) < 4 || (input.weather?.airTempC ?? 0) >= 34) {
     rate *= 0.5;
-    cautions.push("低酸素または高温条件では、給餌を大きく減らすか一時停止を検討してください。");
+    cautions.push("Under low oxygen or high heat, strongly reduce feeding or consider pausing it.");
   }
 
   const biomassKg = input.fishCount && input.fishCount > 0 ? (input.averageWeightG / 1000) * input.fishCount : undefined;
   const recommendedFeedKg = biomassKg ? Math.max(0, Number(((biomassKg * rate) / 100).toFixed(2))) : undefined;
   const protein = targetProteinRange(input.averageWeightG);
 
-  let productAdvice = `${protein.label}です。`;
+  let productAdvice = `${protein.label}.`;
   if (typeof input.proteinPercent === "number") {
     if (input.proteinPercent < protein.min) {
-      productAdvice += ` 現在のタンパク質率${input.proteinPercent}%は低めなので、成長速度を重視する場合は${protein.min}%以上の製品を検討してください。`;
+      productAdvice += ` The current protein level (${input.proteinPercent}%) is low; if growth rate is the priority, consider a product at or above ${protein.min}%.`;
     } else if (input.proteinPercent > protein.max + 4) {
-      productAdvice += ` 現在のタンパク質率${input.proteinPercent}%は高めです。残餌やアンモニア上昇がないか確認してください。`;
+      productAdvice += ` The current protein level (${input.proteinPercent}%) is high. Watch for leftover feed and ammonia increase.`;
     } else {
-      productAdvice += ` 現在のタンパク質率${input.proteinPercent}%は目安範囲に近いです。`;
+      productAdvice += ` The current protein level (${input.proteinPercent}%) is close to the target range.`;
     }
   }
 
   if (typeof input.pelletSizeMm === "number" && input.averageWeightG < 50 && input.pelletSizeMm > 2) {
-    cautions.push("平均体重に対して粒径が大きい可能性があります。摂餌しやすい小粒を確認してください。");
+    cautions.push("Pellet size may be large for the average body weight. Check whether smaller pellets are easier to eat.");
   }
 
-  const amountText = recommendedFeedKg ? `推奨量は約${recommendedFeedKg}kg/日です。` : "個体数を入力すると推奨kg/日を計算できます。";
-  return {
-    recommendedFeedKg,
-    feedRatePercent: Number(rate.toFixed(2)),
-    summary: `${amountText} 目安は推定バイオマスの${rate.toFixed(2)}%です。実際の残餌、食いつき、水質で調整してください。`,
-    productAdvice,
-    cautions,
-  };
+  const amountText = recommendedFeedKg ? `Recommended feed is about ${recommendedFeedKg} kg/day.` : "Enter fish count to calculate recommended kg/day.";
+  return { recommendedFeedKg, feedRatePercent: Number(rate.toFixed(2)), summary: `${amountText} The guide rate is ${rate.toFixed(2)}% of estimated biomass. Adjust using actual leftover feed, appetite, and water quality.`, productAdvice, cautions };
 }
 
 export function assessGrowthTrend(measurements: GrowthMeasurementInput[]): GrowthAssessment {
-  const ordered = [...measurements]
-    .filter((item) => Number.isFinite(item.lengthCm) && Number.isFinite(item.weightG))
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const ordered = [...measurements].filter((item) => Number.isFinite(item.lengthCm) && Number.isFinite(item.weightG)).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   if (ordered.length < 2) {
-    return {
-      status: "insufficient",
-      severity: "watch",
-      title: "成長データ不足",
-      summary: "成長傾向を見るには、同じ水槽で少なくとも2回以上の体長・体重記録が必要です。",
-      recommendation: "測定方法をそろえ、次回も体長cmと体重gを記録してください。写真だけで断定しないでください。",
-    };
+    return { status: "insufficient", severity: "watch", title: "Not enough growth data", summary: "At least two length and weight records from the same tank are needed to evaluate growth trend.", recommendation: "Use a consistent measuring method and record length in cm and weight in g next time. Do not conclude from photos alone." };
   }
 
   const previous = ordered[ordered.length - 2];
@@ -286,83 +218,35 @@ export function assessGrowthTrend(measurements: GrowthMeasurementInput[]): Growt
   const dailyWeightGainPercent = previous.weightG > 0 ? ((latest.weightG / previous.weightG) ** (1 / days) - 1) * 100 : 0;
 
   if (weightGain < 0 || lengthGain < -0.5) {
-    return {
-      status: "decline",
-      severity: "danger",
-      title: "体重低下に注意",
-      summary: `前回より体重が${Math.abs(weightGain).toFixed(1)}g変化しています。測定誤差の可能性もありますが、食いつき・水質・外観を確認してください。`,
-      dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
-      lengthGainCm: Number(lengthGain.toFixed(1)),
-      comparedDays: days,
-      recommendation: "測定器と個体条件を確認し、食欲低下、低酸素、赤み、潰瘍、腹部膨満があれば早めに隔離や専門家相談を検討してください。",
-    };
+    return { status: "decline", severity: "danger", title: "Weight decline watch", summary: `Weight changed by ${Math.abs(weightGain).toFixed(1)} g from the previous record. It may be measurement error, but appetite, water quality, and appearance should be checked.`, dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)), lengthGainCm: Number(lengthGain.toFixed(1)), comparedDays: days, recommendation: "Check scale and sampling conditions. If appetite loss, low oxygen, redness, ulcers, swollen belly, or mortality is present, consider isolation and expert advice." };
   }
 
   if (dailyWeightGainPercent < 0.15 && days >= 3) {
-    return {
-      status: "slow",
-      severity: "watch",
-      title: "成長停滞ぎみ",
-      summary: `${days}日間の体重増加が小さく、日あたり約${dailyWeightGainPercent.toFixed(2)}%です。`,
-      dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
-      lengthGainCm: Number(lengthGain.toFixed(1)),
-      comparedDays: days,
-      recommendation: "給餌量、餌の粒径・タンパク質、水温、溶存酸素、残餌を合わせて確認してください。",
-    };
+    return { status: "slow", severity: "watch", title: "Growth may be slowing", summary: `Weight gain over ${days} days is small, about ${dailyWeightGainPercent.toFixed(2)}% per day.`, dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)), lengthGainCm: Number(lengthGain.toFixed(1)), comparedDays: days, recommendation: "Review feeding amount, pellet size, protein level, water temperature, dissolved oxygen, and leftover feed together." };
   }
 
   if (dailyWeightGainPercent > 5 || latest.weightG > previous.weightG * 1.8) {
-    return {
-      status: "rapid",
-      severity: "watch",
-      title: "急変値を確認",
-      summary: `前回からの増加が大きく、測定個体の違いや入力ミスの確認が必要です。`,
-      dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
-      lengthGainCm: Number(lengthGain.toFixed(1)),
-      comparedDays: days,
-      recommendation: "同じ測定条件か確認し、必要なら再測定してください。腹部膨満など外観異常がある場合は病気の可能性も確認してください。",
-    };
+    return { status: "rapid", severity: "watch", title: "Check sudden change", summary: "The increase from the previous record is large, so confirm whether the sampled fish or input value changed.", dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)), lengthGainCm: Number(lengthGain.toFixed(1)), comparedDays: days, recommendation: "Confirm the same measuring conditions and remeasure if needed. If swollen belly or other abnormal appearance is present, also consider disease risk." };
   }
 
-  return {
-    status: "good",
-    severity: "normal",
-    title: "成長は順調傾向",
-    summary: `${days}日間で体重が${weightGain.toFixed(1)}g、体長が${lengthGain.toFixed(1)}cm変化しています。`,
-    dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
-    lengthGainCm: Number(lengthGain.toFixed(1)),
-    comparedDays: days,
-    recommendation: "この傾向を維持しつつ、毎日の水温・溶存酸素・食いつきも合わせて記録してください。",
-  };
+  return { status: "good", severity: "normal", title: "Growth trend is on track", summary: `Over ${days} days, weight changed by ${weightGain.toFixed(1)} g and length by ${lengthGain.toFixed(1)} cm.`, dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)), lengthGainCm: Number(lengthGain.toFixed(1)), comparedDays: days, recommendation: "Maintain this trend while also recording daily water temperature, dissolved oxygen, and appetite." };
 }
 
 export function buildPhotoScreeningFromInputs(signs: VisibleHealthSigns): PhotoScreening {
   const visibleSigns = [
-    signs.redness ? "赤み・出血斑" : undefined,
-    signs.ulcers ? "潰瘍・傷" : undefined,
-    signs.whiteSpots ? "白点・綿状付着" : undefined,
-    signs.finDamage ? "ヒレ損傷" : undefined,
-    signs.swollenBelly ? "腹部膨満" : undefined,
-    signs.popeye ? "眼の突出" : undefined,
-    signs.abnormalColor ? "体色異常" : undefined,
+    signs.redness ? "Redness or bleeding spots" : undefined,
+    signs.ulcers ? "Ulcers or wounds" : undefined,
+    signs.whiteSpots ? "White spots or cotton-like growth" : undefined,
+    signs.finDamage ? "Fin damage" : undefined,
+    signs.swollenBelly ? "Swollen belly" : undefined,
+    signs.popeye ? "Popeye" : undefined,
+    signs.abnormalColor ? "Abnormal body color" : undefined,
   ].filter(Boolean) as string[];
 
   const severe = signs.ulcers || signs.swollenBelly || signs.popeye;
   const severity = severe ? "danger" : visibleSigns.length > 0 ? "watch" : "normal";
-  const title = severity === "danger" ? "強い注意サイン" : severity === "watch" ? "外観注意サイン" : "目立つ外観異常なし";
-  const recommendation =
-    severity === "danger"
-      ? "水質測定、食いつき、遊泳状態を確認し、悪化や死亡がある場合は隔離・専門家相談を検討してください。"
-      : severity === "watch"
-        ? "同じ個体を継続観察し、水温・溶存酸素・アンモニア・亜硝酸を確認してください。"
-        : "写真で見える範囲では大きな異常は選択されていません。日々の食いつきと水質確認は継続してください。";
+  const title = severity === "danger" ? "Strong warning signs" : severity === "watch" ? "Visible appearance signs" : "No obvious visible abnormality";
+  const recommendation = severity === "danger" ? "Check water quality, appetite, and swimming behavior. If the case worsens or mortality occurs, consider isolation and expert advice." : severity === "watch" ? "Keep observing the same fish and check water temperature, dissolved oxygen, ammonia, and nitrite." : "No major visible abnormality was selected from the photo. Continue daily appetite and water quality checks.";
 
-  return {
-    severity,
-    title,
-    summary: visibleSigns.length ? `選択された外観サイン: ${visibleSigns.join("、")}` : "選択された外観サインはありません。",
-    visibleSigns,
-    recommendation,
-    disclaimer: "写真チェックは確定診断ではありません。病名の断定ではなく、飼育者の観察、水質測定、必要時の専門家相談を補助するものです。",
-  };
+  return { severity, title, summary: visibleSigns.length ? `Selected visible signs: ${visibleSigns.join(", ")}` : "No visible signs were selected.", visibleSigns, recommendation, disclaimer: "Photo screening is not a definitive diagnosis. It supports farmer observation, water testing, and expert consultation when needed; it does not identify a disease name by itself." };
 }

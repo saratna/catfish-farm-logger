@@ -110,25 +110,25 @@ export function assessFeedEfficiencyProfitRisk(input: {
     alerts.push({
       id: "fcr_missing_growth",
       severity: "watch",
-      title: "FCRをまだ推定できません",
-      reason: "給餌量、複数回の平均体重、推定尾数が揃うと、投入飼料kg ÷ 増加バイオマスkgでFCRを推定できます。",
-      action: "同じ水槽で定期的に平均体重と尾数を記録し、給餌量の入力を継続してください。",
+      title: "FCR cannot be estimated yet",
+      reason: "FCR can be estimated as feed input kg divided by biomass gain kg after feed amount, multiple average-weight records, and estimated fish count are available.",
+      action: "Keep recording average weight, fish count, and feed amount regularly for the same tank.",
     });
   } else if (fcr >= 3) {
     alerts.push({
       id: "fcr_danger",
       severity: "danger",
-      title: "飼料効率が大きく悪化しています",
-      reason: `推定FCRは${formatNumber(fcr, 2)}です。魚体増加に対して飼料投入が多く、残餌、水温、溶存酸素、疾病、選別遅れの影響が疑われます。`,
-      action: "給餌量を一時的に抑え、残餌、食い付き、溶存酸素、アンモニア、魚体外観を確認してください。",
+      title: "Feed efficiency is seriously worsening",
+      reason: `Estimated FCR is ${formatNumber(fcr, 2)}. Feed input is high relative to biomass gain. Leftover feed, water temperature, dissolved oxygen, disease, or delayed grading may be involved.`,
+      action: "Temporarily reduce feeding and check leftover feed, appetite, dissolved oxygen, ammonia, and fish appearance.",
     });
   } else if (fcr >= 2.2) {
     alerts.push({
       id: "fcr_watch",
       severity: "watch",
-      title: "飼料効率に注意が必要です",
-      reason: `推定FCRは${formatNumber(fcr, 2)}です。利益率が十分でも、飼料効率の悪化は後続ロットの採算を圧迫します。`,
-      action: "給餌時間、粒径、タンパク、残餌、サイズばらつきを見直してください。",
+      title: "Feed efficiency needs attention",
+      reason: `Estimated FCR is ${formatNumber(fcr, 2)}. Even when margin is acceptable, worsening feed efficiency can reduce profitability in later batches.`,
+      action: "Review feeding time, pellet size, protein level, leftover feed, and size variation.",
     });
   }
 
@@ -136,25 +136,25 @@ export function assessFeedEfficiencyProfitRisk(input: {
     alerts.push({
       id: "margin_missing_sales",
       severity: "watch",
-      title: "利益率をまだ算出できません",
-      reason: "販売記録がないため、売上に対する粗利益率を算出できません。",
-      action: "販売kg、kg単価、販売先を入力して、コストと同じ水槽・ロットで比較してください。",
+      title: "Margin cannot be calculated yet",
+      reason: "There are no sales records, so gross margin against sales cannot be calculated.",
+      action: "Enter sales kg, unit price per kg, and buyer, then compare them against costs for the same tank or batch.",
     });
   } else if (summary.marginPercent < 0) {
     alerts.push({
       id: "margin_danger",
       severity: "danger",
-      title: "粗利益が赤字です",
-      reason: `粗利益率は${formatNumber(summary.marginPercent, 1)}%です。販売額より投入コストが大きくなっています。`,
-      action: "餌代、電気・水道、人件費、販売単価を分けて確認し、次回出荷条件や給餌計画を見直してください。",
+      title: "Gross profit is negative",
+      reason: `Gross margin is ${formatNumber(summary.marginPercent, 1)}%. Input cost is higher than sales value.`,
+      action: "Separate feed, power, water, labor, and sale price, then review the next harvest conditions and feeding plan.",
     });
   } else if (summary.marginPercent < 15) {
     alerts.push({
       id: "margin_watch",
       severity: "watch",
-      title: "利益率が低めです",
-      reason: `粗利益率は${formatNumber(summary.marginPercent, 1)}%です。想定外の死亡、成長停滞、餌代高騰があると赤字化しやすい状態です。`,
-      action: "単価交渉、出荷サイズ、飼料費、電気・水道費の削減余地を確認してください。",
+      title: "Margin is low",
+      reason: `Gross margin is ${formatNumber(summary.marginPercent, 1)}%. Unexpected mortality, slow growth, or higher feed cost could easily turn this batch negative.`,
+      action: "Check unit-price negotiation, harvest size, feed cost, power cost, and water cost reduction opportunities.",
     });
   }
 
@@ -162,9 +162,9 @@ export function assessFeedEfficiencyProfitRisk(input: {
     alerts.push({
       id: "feed_cost_share_watch",
       severity: feedCostSharePercent >= 70 ? "danger" : "watch",
-      title: "餌代比率が高くなっています",
-      reason: `総コストに占める餌代は${formatNumber(feedCostSharePercent, 1)}%です。FCR悪化と同時に起きると利益率を強く押し下げます。`,
-      action: "銘柄、粒径、給餌率、保存状態、残餌を見直し、同じ増体をより少ない投入で得られるか確認してください。",
+      title: "Feed cost share is high",
+      reason: `Feed cost is ${formatNumber(feedCostSharePercent, 1)}% of total cost. If it occurs together with worsening FCR, margin can fall sharply.`,
+      action: "Review brand, pellet size, feeding rate, storage condition, and leftover feed to see whether the same growth can be achieved with less input.",
     });
   }
 
@@ -172,16 +172,16 @@ export function assessFeedEfficiencyProfitRisk(input: {
     alerts.push({
       id: "combined_feed_profit_danger",
       severity: "danger",
-      title: "FCR悪化と低利益率が同時に発生しています",
-      reason: `推定FCR ${formatNumber(fcr, 2)}、粗利益率 ${formatNumber(summary.marginPercent, 1)}% の組み合わせです。成長効率と販売採算の両面で注意が必要です。`,
-      action: "次回給餌を控えめにし、水質検査、選別、疾病サイン、販売単価、固定費配賦を同日に確認してください。",
+      title: "Worse FCR and low margin are occurring together",
+      reason: `Estimated FCR ${formatNumber(fcr, 2)} and gross margin ${formatNumber(summary.marginPercent, 1)}% are worsening together. Both growth efficiency and sales profitability need attention.`,
+      action: "Set the next feeding conservatively and check water quality, grading, disease signs, sale price, and fixed-cost allocation on the same day.",
     });
   }
 
   const highestSeverity = summarizeManagementSeverity(alerts);
   return {
     severity: highestSeverity,
-    title: highestSeverity === "danger" ? "経営リスク高" : highestSeverity === "watch" ? "経営注意" : "収支と飼料効率は安定",
+    title: highestSeverity === "danger" ? "High business risk" : highestSeverity === "watch" ? "Business watch" : "Profitability and feed efficiency are stable",
     summary: buildManagementSummary(highestSeverity, fcr, summary.marginPercent, feedCostSharePercent),
     fcr: fcr === null ? null : Number(fcr.toFixed(2)),
     totalFeedKg,
@@ -192,11 +192,11 @@ export function assessFeedEfficiencyProfitRisk(input: {
     alerts: alerts.length > 0 ? alerts : [{
       id: "management_normal",
       severity: "normal",
-      title: "大きな経営アラートはありません",
-      reason: "入力済みデータ上では、推定FCR、粗利益率、餌代比率に強い悪化サインは見られません。",
-      action: "同じ条件で記録を継続し、出荷後に実測収支で再確認してください。",
+      title: "No major business alert",
+      reason: "Based on entered data, estimated FCR, gross margin, and feed cost share do not show strong worsening signs.",
+      action: "Continue recording under the same conditions and verify with actual harvest accounts after sale.",
     }],
-    limitation: "FCRは、入力された給餌量、平均体重、推定尾数からの簡易推定です。死亡数、選別、サンプル偏り、未記録の給餌、在池量の誤差があると値がずれます。経営判断では現場測定と帳票を必ず併用してください。",
+    limitation: "FCR is a simplified estimate based on entered feed amount, average weight, and estimated fish count. Mortality, grading, sample bias, unrecorded feed, and standing-stock error can shift the value. Always combine this app with field measurements and farm records for business decisions.",
   };
 }
 
@@ -222,7 +222,7 @@ export function buildMonthlyTrend(costs: FarmCostEntry[], sales: FarmSaleRecord[
 
       return {
         month,
-        label: `${Number(month.slice(5, 7))}月`,
+        label: new Intl.DateTimeFormat("en", { month: "short" }).format(new Date(`${month}-01T00:00:00.000Z`)),
         totalCost: summary.totalCost,
         totalSales: summary.totalSales,
         grossProfit: summary.grossProfit,
@@ -278,21 +278,21 @@ export function buildImprovementChecklist(alerts: ManagementAlert[]): Improvemen
 
   alerts.filter((alert) => alert.severity !== "normal").forEach((alert) => {
     if (alert.id.includes("combined_feed_profit")) {
-      add(alert, "same_day_review", "給餌・水質・販売条件を同日に確認", "FCRと利益率が同時に悪化しているため、給餌量、残餌、水質、疾病サイン、販売単価、固定費配賦を同じ日に照合します。");
-      add(alert, "next_feed_adjust", "次回給餌を控えめに設定", "食い付きと残餌を見ながら一時的に給餌率を下げ、増体測定後に戻すか判断します。");
+      add(alert, "same_day_review", "Review feeding, water quality, and sales terms on the same day", "Because FCR and margin are worsening together, compare feed amount, leftover feed, water quality, disease signs, sale price, and fixed-cost allocation on the same day.");
+      add(alert, "next_feed_adjust", "Set the next feeding conservatively", "Temporarily lower the feeding rate while watching appetite and leftover feed, then decide whether to restore it after growth measurement.");
     } else if (alert.id.includes("fcr")) {
-      add(alert, "feeding_observation", "残餌・食い付き・給餌時刻を記録", "食べ残し、沈下餌の滞留、給餌時間帯、粒径と魚体サイズのずれを確認します。");
-      add(alert, "growth_sampling", "平均体重と推定尾数を再測定", "同じ水槽で複数個体を測り、死亡・選別・尾数変化を補正してFCRの分母を見直します。");
-      add(alert, "water_quality", "溶存酸素・アンモニア・水温を確認", "摂餌低下や増体停滞の背景として、水質と急な環境変化を点検します。");
+      add(alert, "feeding_observation", "Record leftover feed, appetite, and feeding time", "Check uneaten feed, sinking-feed accumulation, feeding time, and mismatch between pellet size and fish size.");
+      add(alert, "growth_sampling", "Remeasure average weight and estimated fish count", "Measure several fish in the same tank and adjust the FCR denominator for mortality, grading, and fish-count changes.");
+      add(alert, "water_quality", "Check dissolved oxygen, ammonia, and water temperature", "Inspect water quality and sudden environmental changes behind weak appetite or slow growth.");
     } else if (alert.id.includes("margin")) {
-      add(alert, "cost_breakdown", "費用内訳を餌代・電気水道・人件費に分解", "どの費目が粗利益を圧迫しているかを分け、削減できる固定費と変動費を切り分けます。");
-      add(alert, "sales_price", "販売単価と出荷グレードを見直し", "サイズ、歩留まり、販売先、納品条件を比較し、単価交渉や出荷タイミングの余地を確認します。");
+      add(alert, "cost_breakdown", "Break costs into feed, power/water, and labor", "Separate which cost items are pressuring gross profit and distinguish reducible fixed and variable costs.");
+      add(alert, "sales_price", "Review sale price and harvest grade", "Compare size, yield, buyer, and delivery conditions to check room for price negotiation or harvest timing changes.");
     } else if (alert.id.includes("feed_cost_share")) {
-      add(alert, "feed_contract", "飼料銘柄・粒径・仕入条件を比較", "同じ増体に対してより少ない投入量または低いkg単価で済む選択肢がないか確認します。");
-      add(alert, "feed_storage", "飼料の保管状態を点検", "吸湿、酸化、粉化があると食い付きと効率が落ちるため、ロットと保存場所を確認します。");
+      add(alert, "feed_contract", "Compare feed brand, pellet size, and purchasing terms", "Check whether another option can achieve the same growth with less feed input or lower price per kg.");
+      add(alert, "feed_storage", "Inspect feed storage condition", "Moisture absorption, oxidation, and powdering can reduce appetite and efficiency, so check lot and storage place.");
     }
 
-    add(alert, "record_evidence", "判断根拠をメモへ残す", alert.action);
+    add(alert, "record_evidence", "Record the evidence behind the decision", alert.action);
   });
 
   return items;
@@ -305,11 +305,11 @@ function summarizeManagementSeverity(alerts: ManagementAlert[]): ManagementAlert
 }
 
 function buildManagementSummary(severity: ManagementAlertSeverity, fcr: number | null, marginPercent: number | null, feedCostSharePercent: number | null) {
-  const fcrText = fcr === null ? "FCR未計算" : `FCR ${formatNumber(fcr, 2)}`;
-  const marginText = marginPercent === null ? "利益率未計算" : `利益率 ${formatNumber(marginPercent, 1)}%`;
-  const feedText = feedCostSharePercent === null ? "餌代比率未計算" : `餌代比率 ${formatNumber(feedCostSharePercent, 1)}%`;
-  const prefix = severity === "danger" ? "至急確認してください。" : severity === "watch" ? "注意して確認してください。" : "継続観察で問題ありません。";
-  return `${prefix} ${fcrText}、${marginText}、${feedText} を連動して評価しています。`;
+  const fcrText = fcr === null ? "FCR not calculated" : `FCR ${formatNumber(fcr, 2)}`;
+  const marginText = marginPercent === null ? "Margin not calculated" : `Margin ${formatNumber(marginPercent, 1)}%`;
+  const feedText = feedCostSharePercent === null ? "Feed cost share not calculated" : `Feed cost share ${formatNumber(feedCostSharePercent, 1)}%`;
+  const prefix = severity === "danger" ? "Check urgently." : severity === "watch" ? "Check carefully." : "Continue monitoring.";
+  return `${prefix} ${fcrText}、${marginText}、${feedText} together.`;
 }
 
 function getLatestFishCount(feedings: Feeding[]) {
@@ -344,7 +344,7 @@ function safeNumber(value: number | undefined) {
 }
 
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "JPY", maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(value);
 }
 
 export function formatNumber(value: number, digits = 1) {

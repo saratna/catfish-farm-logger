@@ -168,12 +168,15 @@ export type FarmSettings = {
   weatherAlertsEnabled: boolean;
   alertTempC: number;
   alertRainMm24h: number;
+  autoSyncEnabled: boolean;
+  staleSyncWarningDays: number;
 };
 
 export type SyncLog = {
   lastSyncAt?: string;
   lastExportAt?: string;
-  status: "idle" | "waiting" | "synced" | "failed";
+  lastAttemptAt?: string;
+  status: "idle" | "waiting" | "syncing" | "synced" | "failed";
   message: string;
 };
 
@@ -258,6 +261,8 @@ const defaultState: FarmState = {
     weatherAlertsEnabled: true,
     alertTempC: 34,
     alertRainMm24h: 50,
+    autoSyncEnabled: true,
+    staleSyncWarningDays: 7,
   },
   sync: {
     status: "waiting",
@@ -311,7 +316,7 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
         weatherRecords: state.weatherRecords.map((item) => ({ ...item, synced: true })),
         riskAlerts: state.riskAlerts.map((item) => ({ ...item, synced: true })),
         feedProducts: state.feedProducts.map((item) => ({ ...item, synced: true })),
-        sync: { status: "synced", lastSyncAt: action.payload.at, message: "All local records are marked as synced." },
+        sync: { status: "synced", lastSyncAt: action.payload.at, lastAttemptAt: action.payload.at, message: "All local records have been uploaded." },
       };
     case "setSyncStatus":
       return { ...state, sync: action.payload };
@@ -336,6 +341,8 @@ function serializableState(state: FarmState): Omit<FarmState, "hydrated"> {
 
 type FarmContextValue = FarmState & {
   pendingSyncCount: number;
+  syncAgeDays: number | null;
+  hasStaleSyncWarning: boolean;
   todaysMissingTankIds: string[];
   latestWeather?: WeatherRecord;
   activeRiskAlerts: RiskAlert[];
@@ -354,6 +361,7 @@ type FarmContextValue = FarmState & {
   addFeedProduct: (input: Omit<FeedProduct, "id" | "createdAt" | "synced">) => void;
   updateSettings: (input: Partial<FarmSettings>) => void;
   markSynced: () => void;
+  setSyncStatus: (input: SyncLog) => void;
   generateDrivePayload: () => DriveExport;
 };
 
@@ -435,6 +443,11 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
 
   const latestWeather = state.weatherRecords[0];
   const activeRiskAlerts = useMemo(() => state.riskAlerts.filter((item) => !item.acknowledged), [state.riskAlerts]);
+  const syncAgeDays = useMemo(() => daysSinceSync(state.sync.lastSyncAt), [state.sync.lastSyncAt]);
+  const hasStaleSyncWarning = useMemo(
+    () => pendingSyncCount > 0 && isSyncStale(state.sync.lastSyncAt, state.settings.staleSyncWarningDays),
+    [pendingSyncCount, state.sync.lastSyncAt, state.settings.staleSyncWarningDays],
+  );
 
   const addTank = useCallback((input: Pick<Tank, "name" | "location" | "notes">) => {
     dispatch({ type: "addTank", payload: { id: createId("tank"), createdAt: nowIso(), ...input } });
@@ -500,6 +513,10 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "markSynced", payload: { at: nowIso() } });
   }, []);
 
+  const setSyncStatus = useCallback((input: SyncLog) => {
+    dispatch({ type: "setSyncStatus", payload: input });
+  }, []);
+
   const generateDrivePayload = useCallback((): DriveExport => {
     return {
       rootFolder: state.settings.driveRootFolder,
@@ -542,6 +559,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       pendingSyncCount,
+      syncAgeDays,
+      hasStaleSyncWarning,
       todaysMissingTankIds,
       latestWeather,
       activeRiskAlerts,
@@ -560,9 +579,10 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       addFeedProduct,
       updateSettings,
       markSynced,
+      setSyncStatus,
       generateDrivePayload,
     }),
-    [state, pendingSyncCount, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, addGrowthMeasurement, addPhotoAssessment, addCostEntry, addSaleRecord, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, generateDrivePayload],
+    [state, pendingSyncCount, syncAgeDays, hasStaleSyncWarning, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, addGrowthMeasurement, addPhotoAssessment, addCostEntry, addSaleRecord, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, setSyncStatus, generateDrivePayload],
   );
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>;
@@ -579,4 +599,16 @@ export function useFarm() {
 export function formatShortDate(value?: string) {
   if (!value) return "Not yet";
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+
+export function daysSinceSync(lastSyncAt?: string) {
+  if (!lastSyncAt) return null;
+  const last = Date.parse(lastSyncAt);
+  if (!Number.isFinite(last)) return null;
+  return Math.max(0, Math.floor((Date.now() - last) / 86_400_000));
+}
+
+export function isSyncStale(lastSyncAt: string | undefined, thresholdDays: number) {
+  const age = daysSinceSync(lastSyncAt);
+  return age === null || age >= Math.max(1, thresholdDays);
 }

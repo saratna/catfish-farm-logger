@@ -10,14 +10,14 @@ import type { FarmCostCategory } from "@/lib/farm-store";
 import { formatShortDate, useFarm } from "@/lib/farm-store";
 
 const COST_CATEGORIES: Array<{ value: FarmCostCategory; label: string }> = [
-  { value: "seed_stock", label: "稚魚代" },
-  { value: "feed", label: "餌代" },
-  { value: "labor", label: "人件費" },
-  { value: "electricity", label: "電気代" },
-  { value: "water", label: "水道代" },
-  { value: "medicine", label: "薬品・衛生" },
-  { value: "maintenance", label: "設備保守" },
-  { value: "other", label: "その他" },
+  { value: "seed_stock", label: "Fingerlings" },
+  { value: "feed", label: "Feed" },
+  { value: "labor", label: "Labor" },
+  { value: "electricity", label: "Electricity" },
+  { value: "water", label: "Water" },
+  { value: "medicine", label: "Medicine and hygiene" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "other", label: "Other" },
 ];
 
 const toNumber = (value: string) => Number(value.replace(/,/g, ""));
@@ -26,14 +26,14 @@ export default function FinanceScreen() {
   const farm = useFarm();
   const [selectedTankId, setSelectedTankId] = useState(farm.tanks[0]?.id ?? "");
   const [category, setCategory] = useState<FarmCostCategory>("feed");
-  const [costLabel, setCostLabel] = useState("餌代");
+  const [costLabel, setCostLabel] = useState("Feed cost");
   const [costAmount, setCostAmount] = useState("");
   const [costQuantity, setCostQuantity] = useState("");
   const [costUnit, setCostUnit] = useState("kg");
   const [vendor, setVendor] = useState("");
   const [costNotes, setCostNotes] = useState("");
   const [buyer, setBuyer] = useState("");
-  const [grade, setGrade] = useState("活魚・通常サイズ");
+  const [grade, setGrade] = useState("Live fish - standard size");
   const [saleKg, setSaleKg] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [saleNotes, setSaleNotes] = useState("");
@@ -57,7 +57,7 @@ export default function FinanceScreen() {
   const saveCost = () => {
     const amount = toNumber(costAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      Alert.alert("金額を確認してください", "稚魚代、餌代、人件費などの支出金額を0より大きい数値で入力してください。");
+      Alert.alert("Check the amount", "Enter a cost amount greater than 0 for fingerlings, feed, labor, or other expenses.");
       return;
     }
     farm.addCostEntry({
@@ -74,20 +74,20 @@ export default function FinanceScreen() {
     setCostQuantity("");
     setVendor("");
     setCostNotes("");
-    Alert.alert("コストを保存しました", "収支サマリーとGoogle Driveエクスポートに反映されます。");
+    Alert.alert("Cost saved", "The finance summary and Google Drive export will be updated.");
   };
 
   const saveSale = () => {
     const kg = toNumber(saleKg);
     const price = toNumber(unitPrice);
     if (!Number.isFinite(kg) || kg <= 0 || !Number.isFinite(price) || price <= 0) {
-      Alert.alert("販売数量と単価を確認してください", "販売kgとkg単価を0より大きい数値で入力してください。");
+      Alert.alert("Check sales quantity and price", "Enter sales kg and unit price per kg as numbers greater than 0.");
       return;
     }
     farm.addSaleRecord({
       tankId: selectedTankId || undefined,
-      buyer: buyer.trim() || "未指定の販売先",
-      productGrade: grade.trim() || "未指定グレード",
+      buyer: buyer.trim() || "Unspecified buyer",
+      productGrade: grade.trim() || "Unspecified grade",
       quantityKg: kg,
       unitPrice: price,
       notes: saleNotes.trim(),
@@ -96,7 +96,7 @@ export default function FinanceScreen() {
     setSaleKg("");
     setUnitPrice("");
     setSaleNotes("");
-    Alert.alert("販売記録を保存しました", "売上、粗利益、kgあたりコストを更新しました。");
+    Alert.alert("Sale saved", "Sales, gross profit, and cost per kg have been updated.");
   };
 
   return (
@@ -108,10 +108,10 @@ export default function FinanceScreen() {
         ListHeaderComponent={
           <View className="pb-4">
             <Text className="text-3xl font-extrabold text-foreground">Economics</Text>
-            <Text className="mt-1 text-base leading-6 text-muted">稚魚代、餌代、人件費、電気代、水道代などの投入コストと販売価格を同じ水槽・ロットで記録し、粗利益を確認します。</Text>
+            <Text className="mt-1 text-base leading-6 text-muted">Record input costs such as fingerlings, feed, labor, electricity, and water with sales prices for the same tank or lot, then review gross profit.</Text>
 
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-              <Text className="text-sm font-bold text-muted">対象水槽</Text>
+              <Text className="text-sm font-bold text-muted">Selected tank</Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {farm.tanks.map((tank) => (
                   <TouchableOpacity key={tank.id} className={`rounded-full px-4 py-2 ${selectedTankId === tank.id ? "bg-primary" : "bg-background"}`} onPress={() => setSelectedTankId(tank.id)}>
@@ -125,14 +125,14 @@ export default function FinanceScreen() {
               <Metric label="Total cost" value={formatCurrency(summary.totalCost)} tone="warning" />
               <Metric label="Sales" value={formatCurrency(summary.totalSales)} tone="success" />
               <Metric label="Gross profit" value={formatCurrency(summary.grossProfit)} tone={summary.grossProfit >= 0 ? "success" : "error"} />
-              <Metric label="Cost / kg sold" value={summary.costPerKgSold === null ? "未計算" : formatCurrency(summary.costPerKgSold)} tone="muted" />
+              <Metric label="Cost / kg sold" value={summary.costPerKgSold === null ? "not calculated" : formatCurrency(summary.costPerKgSold)} tone="muted" />
             </View>
 
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
               <View className="flex-row items-start justify-between gap-3">
                 <View className="flex-1">
-                  <Text className="text-xl font-bold text-foreground">FCR・利益率アラート</Text>
-                  <Text className="mt-1 text-sm leading-5 text-muted">給餌量、平均体重の増加、販売収支を組み合わせ、飼料効率と採算の悪化を早めに確認します。</Text>
+                  <Text className="text-xl font-bold text-foreground">FCR and margin alert</Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted">Combine feed amount, average-weight gain, and sales economics to detect declining feed efficiency and profitability early.</Text>
                 </View>
                 <View className={`rounded-full px-3 py-1 ${severityBadgeClass(managementAlert.severity)}`}>
                   <Text className="text-xs font-extrabold text-white">{severityLabel(managementAlert.severity)}</Text>
@@ -141,16 +141,16 @@ export default function FinanceScreen() {
               <Text className="mt-4 text-base font-bold text-foreground">{managementAlert.title}</Text>
               <Text className="mt-2 text-sm leading-5 text-muted">{managementAlert.summary}</Text>
               <View className="mt-4 flex-row flex-wrap gap-2">
-                <MiniMetric label="推定FCR" value={managementAlert.fcr === null ? "未計算" : formatNumber(managementAlert.fcr, 2)} />
-                <MiniMetric label="増加バイオマス" value={managementAlert.biomassGainKg === null ? "未計算" : `${formatNumber(managementAlert.biomassGainKg, 2)} kg`} />
-                <MiniMetric label="利益率" value={managementAlert.marginPercent === null ? "未計算" : `${formatNumber(managementAlert.marginPercent, 1)}%`} />
-                <MiniMetric label="餌代比率" value={managementAlert.feedCostSharePercent === null ? "未計算" : `${formatNumber(managementAlert.feedCostSharePercent, 1)}%`} />
+                <MiniMetric label="Estimated FCR" value={managementAlert.fcr === null ? "not calculated" : formatNumber(managementAlert.fcr, 2)} />
+                <MiniMetric label="Biomass gain" value={managementAlert.biomassGainKg === null ? "not calculated" : `${formatNumber(managementAlert.biomassGainKg, 2)} kg`} />
+                <MiniMetric label="Margin" value={managementAlert.marginPercent === null ? "not calculated" : `${formatNumber(managementAlert.marginPercent, 1)}%`} />
+                <MiniMetric label="Feed cost share" value={managementAlert.feedCostSharePercent === null ? "not calculated" : `${formatNumber(managementAlert.feedCostSharePercent, 1)}%`} />
               </View>
               {managementAlert.alerts.slice(0, 3).map((alert) => (
                 <View key={alert.id} className="mt-3 rounded-2xl bg-background p-4">
                   <Text className={`text-sm font-extrabold ${alert.severity === "danger" ? "text-error" : alert.severity === "watch" ? "text-warning" : "text-success"}`}>{alert.title}</Text>
                   <Text className="mt-1 text-sm leading-5 text-muted">{alert.reason}</Text>
-                  <Text className="mt-2 text-sm leading-5 text-foreground">対応: {alert.action}</Text>
+                  <Text className="mt-2 text-sm leading-5 text-foreground">Action: {alert.action}</Text>
                 </View>
               ))}
               <Text className="mt-3 text-xs leading-5 text-muted">{managementAlert.limitation}</Text>
@@ -166,8 +166,8 @@ export default function FinanceScreen() {
 
 
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-              <Text className="text-xl font-bold text-foreground">コスト入力</Text>
-              <Text className="mt-1 text-sm leading-5 text-muted">区分を分けると、後から餌代比率や電気・水道の負担を確認できます。</Text>
+              <Text className="text-xl font-bold text-foreground">Cost entry</Text>
+              <Text className="mt-1 text-sm leading-5 text-muted">Separate categories so feed-cost share and electricity or water burden can be reviewed later.</Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {COST_CATEGORIES.map((item) => (
                   <TouchableOpacity key={item.value} className={`rounded-full px-3 py-2 ${category === item.value ? "bg-primary" : "bg-background"}`} onPress={() => { setCategory(item.value); setCostLabel(item.label); }}>
@@ -175,49 +175,49 @@ export default function FinanceScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <Input label="名称" value={costLabel} onChangeText={setCostLabel} placeholder="例: 3mm浮上ペレット" />
-              <Input label="金額" value={costAmount} onChangeText={setCostAmount} placeholder="例: 18000" keyboardType="decimal-pad" />
+              <Input label="Name" value={costLabel} onChangeText={setCostLabel} placeholder="Example: 3 mm floating pellet" />
+              <Input label="Amount" value={costAmount} onChangeText={setCostAmount} placeholder="Example: 18000" keyboardType="decimal-pad" />
               <View className="flex-row gap-3">
-                <View className="flex-1"><Input label="数量" value={costQuantity} onChangeText={setCostQuantity} placeholder="例: 20" keyboardType="decimal-pad" /></View>
-                <View className="w-24"><Input label="単位" value={costUnit} onChangeText={setCostUnit} placeholder="kg" /></View>
+                <View className="flex-1"><Input label="Quantity" value={costQuantity} onChangeText={setCostQuantity} placeholder="Example: 20" keyboardType="decimal-pad" /></View>
+                <View className="w-24"><Input label="Unit" value={costUnit} onChangeText={setCostUnit} placeholder="kg" /></View>
               </View>
-              <Input label="購入先・担当" value={vendor} onChangeText={setVendor} placeholder="任意" />
-              <Input label="メモ" value={costNotes} onChangeText={setCostNotes} placeholder="水槽条件や支払根拠" multiline />
+              <Input label="Vendor or staff" value={vendor} onChangeText={setVendor} placeholder="Optional" />
+              <Input label="Notes" value={costNotes} onChangeText={setCostNotes} placeholder="Tank condition or payment reason" multiline />
               <TouchableOpacity className="mt-4 rounded-2xl bg-primary py-4 active:opacity-80" onPress={saveCost}>
-                <Text className="text-center font-bold text-white">コストを保存</Text>
+                <Text className="text-center font-bold text-white">Save cost</Text>
               </TouchableOpacity>
             </View>
 
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-              <Text className="text-xl font-bold text-foreground">販売価格入力</Text>
-              <Text className="mt-1 text-sm leading-5 text-muted">販売kgと単価から売上を自動計算し、投入コストと比較します。</Text>
-              <Input label="販売先" value={buyer} onChangeText={setBuyer} placeholder="例: 地元レストラン" />
-              <Input label="商品・グレード" value={grade} onChangeText={setGrade} placeholder="例: 活魚 500g以上" />
+              <Text className="text-xl font-bold text-foreground">Sales record</Text>
+              <Text className="mt-1 text-sm leading-5 text-muted">The app calculates sales from kg and unit price, then compares it with input costs.</Text>
+              <Input label="Buyer" value={buyer} onChangeText={setBuyer} placeholder="Example: local restaurant" />
+              <Input label="Product and grade" value={grade} onChangeText={setGrade} placeholder="Example: live fish over 500 g" />
               <View className="flex-row gap-3">
-                <View className="flex-1"><Input label="販売kg" value={saleKg} onChangeText={setSaleKg} placeholder="例: 12.5" keyboardType="decimal-pad" /></View>
-                <View className="flex-1"><Input label="kg単価" value={unitPrice} onChangeText={setUnitPrice} placeholder="例: 900" keyboardType="decimal-pad" /></View>
+                <View className="flex-1"><Input label="Sales kg" value={saleKg} onChangeText={setSaleKg} placeholder="Example: 12.5" keyboardType="decimal-pad" /></View>
+                <View className="flex-1"><Input label="Unit price per kg" value={unitPrice} onChangeText={setUnitPrice} placeholder="Example: 900" keyboardType="decimal-pad" /></View>
               </View>
-              <Input label="メモ" value={saleNotes} onChangeText={setSaleNotes} placeholder="納品条件・サイズ感" multiline />
+              <Input label="Notes" value={saleNotes} onChangeText={setSaleNotes} placeholder="Delivery condition and size notes" multiline />
               <TouchableOpacity className="mt-4 rounded-2xl bg-success py-4 active:opacity-80" onPress={saveSale}>
-                <Text className="text-center font-bold text-white">販売記録を保存</Text>
+                <Text className="text-center font-bold text-white">Save sale</Text>
               </TouchableOpacity>
             </View>
 
-            <Text className="mt-6 text-xl font-bold text-foreground">一次資料・公的資料からの知見</Text>
-            <Text className="mt-1 text-sm leading-5 text-muted">研究・普及資料はアプリ内の判断補助として使います。写真チェックは確定診断ではありません。</Text>
+            <Text className="mt-6 text-xl font-bold text-foreground">Knowledge from public and technical sources</Text>
+            <Text className="mt-1 text-sm leading-5 text-muted">Research and extension materials are used as decision support inside the app. Photo checks are not a definitive diagnosis.</Text>
             {catfishKnowledgeCards.map((card) => (
               <TouchableOpacity key={card.id} className="mt-3 rounded-3xl border border-border bg-surface p-5 active:opacity-80" onPress={() => Linking.openURL(card.sourceUrl)}>
                 <Text className="text-lg font-bold text-foreground">{card.title}</Text>
                 <Text className="mt-2 text-xs font-bold text-primary">{card.sourceLabel}</Text>
                 <Text className="mt-2 text-sm leading-5 text-muted">{card.insight}</Text>
-                <Text className="mt-3 rounded-2xl bg-background p-3 text-sm leading-5 text-foreground">アプリへの反映: {card.appUse}</Text>
+                <Text className="mt-3 rounded-2xl bg-background p-3 text-sm leading-5 text-foreground">How the app uses this: {card.appUse}</Text>
               </TouchableOpacity>
             ))}
 
-            <Text className="mt-6 text-xl font-bold text-foreground">最近の収支記録</Text>
+            <Text className="mt-6 text-xl font-bold text-foreground">Recent finance records</Text>
           </View>
         }
-        ListEmptyComponent={<Text className="rounded-3xl bg-surface p-5 text-muted">まだ収支記録がありません。稚魚代・餌代・販売価格から入力してください。</Text>}
+        ListEmptyComponent={<Text className="rounded-3xl bg-surface p-5 text-muted">There are no finance records yet. Start with fingerling cost, feed cost, or sales price.</Text>}
         renderItem={({ item }) => (
           <View className="mb-3 flex-row items-center justify-between rounded-3xl border border-border bg-surface p-5">
             <View className="flex-1 pr-3">
@@ -272,9 +272,9 @@ function severityBadgeClass(value: "normal" | "watch" | "danger") {
 }
 
 function severityLabel(value: "normal" | "watch" | "danger") {
-  if (value === "danger") return "危険";
-  if (value === "watch") return "注意";
-  return "安定";
+  if (value === "danger") return "danger";
+  if (value === "watch") return "watch";
+  return "stable";
 }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
@@ -290,21 +290,21 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
 function MonthlyTrendCard({ trend }: { trend: MonthlyEconomicsTrendPoint[] }) {
   return (
     <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-      <Text className="text-xl font-bold text-foreground">月次FCR・利益率推移</Text>
-      <Text className="mt-1 text-sm leading-5 text-muted">選択中の水槽について、月別の推定FCRと粗利益率を同じ時間軸で確認します。FCRは低いほど良く、利益率は高いほど良い指標です。</Text>
+      <Text className="text-xl font-bold text-foreground">Monthly FCR and margin trend</Text>
+      <Text className="mt-1 text-sm leading-5 text-muted">Review the selected tank by month on the same timeline. Lower FCR and higher gross margin are better indicators.</Text>
       {trend.length === 0 ? (
-        <Text className="mt-4 rounded-2xl bg-background p-4 text-sm leading-5 text-muted">月別に表示できる収支・給餌・成長記録がまだありません。</Text>
+        <Text className="mt-4 rounded-2xl bg-background p-4 text-sm leading-5 text-muted">There are not enough finance, feeding, and growth records to show a monthly trend yet.</Text>
       ) : (
         <>
           <DualLineChart trend={trend.slice(-6)} />
           <View className="mt-3 flex-row gap-3">
             <View className="flex-row items-center gap-2"><View className="h-2 w-5 rounded-full bg-primary" /><Text className="text-xs font-bold text-muted">FCR</Text></View>
-            <View className="flex-row items-center gap-2"><View className="h-2 w-5 rounded-full bg-success" /><Text className="text-xs font-bold text-muted">利益率</Text></View>
+            <View className="flex-row items-center gap-2"><View className="h-2 w-5 rounded-full bg-success" /><Text className="text-xs font-bold text-muted">Margin</Text></View>
           </View>
           {trend.slice(-3).map((item) => (
             <View key={item.month} className="mt-3 flex-row items-center justify-between rounded-2xl bg-background p-3">
               <Text className="font-bold text-foreground">{item.label}</Text>
-              <Text className="text-sm text-muted">FCR {item.fcr === null ? "未計算" : formatNumber(item.fcr, 2)} / 利益率 {item.marginPercent === null ? "未計算" : `${formatNumber(item.marginPercent, 1)}%`}</Text>
+              <Text className="text-sm text-muted">FCR {item.fcr === null ? "not calculated" : formatNumber(item.fcr, 2)} / Margin {item.marginPercent === null ? "not calculated" : `${formatNumber(item.marginPercent, 1)}%`}</Text>
             </View>
           ))}
         </>
@@ -335,8 +335,8 @@ function DualLineChart({ trend }: { trend: MonthlyEconomicsTrendPoint[] }) {
       <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
         <Line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#CBD5E1" strokeWidth="1" />
         <Line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#CBD5E1" strokeWidth="1" />
-        <SvgText x={padding} y={18} fontSize="10" fill="#64748B">高</SvgText>
-        <SvgText x={width - padding - 28} y={height - 8} fontSize="10" fill="#64748B">月</SvgText>
+        <SvgText x={padding} y={18} fontSize="10" fill="#64748B">High</SvgText>
+        <SvgText x={width - padding - 28} y={height - 8} fontSize="10" fill="#64748B">Month</SvgText>
         {fcrPoints ? <Polyline points={fcrPoints} fill="none" stroke="#0A7EA4" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
         {marginPoints ? <Polyline points={marginPoints} fill="none" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
         {trend.map((item, index) => (
@@ -352,24 +352,24 @@ function DualLineChart({ trend }: { trend: MonthlyEconomicsTrendPoint[] }) {
 function ProfitabilityRankingCard({ ranking }: { ranking: TankProfitabilityRank[] }) {
   return (
     <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-      <Text className="text-xl font-bold text-foreground">水槽別採算ランキング</Text>
-      <Text className="mt-1 text-sm leading-5 text-muted">全水槽を売上・費用・粗利益・利益率・FCRで比較します。水槽選択の影響を受けず、農場全体の優先確認先を把握できます。</Text>
+      <Text className="text-xl font-bold text-foreground">Tank profitability ranking</Text>
+      <Text className="mt-1 text-sm leading-5 text-muted">Compare all tanks by sales, cost, gross profit, margin, and FCR. This ranking is not affected by the selected tank and helps identify farm-wide priorities.</Text>
       {ranking.length === 0 ? (
-        <Text className="mt-4 rounded-2xl bg-background p-4 text-sm text-muted">水槽データがありません。</Text>
+        <Text className="mt-4 rounded-2xl bg-background p-4 text-sm text-muted">No tank data is available.</Text>
       ) : ranking.map((item) => (
         <View key={item.tankId} className="mt-3 rounded-2xl bg-background p-4">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1">
               <Text className="text-base font-extrabold text-foreground">#{item.rank} {item.tankName}</Text>
-              <Text className="mt-1 text-xs text-muted">売上 {formatCurrency(item.totalSales)} / 費用 {formatCurrency(item.totalCost)}</Text>
+              <Text className="mt-1 text-xs text-muted">Sales {formatCurrency(item.totalSales)} / Cost {formatCurrency(item.totalCost)}</Text>
             </View>
             <View className={`rounded-full px-3 py-1 ${severityBadgeClass(item.severity)}`}><Text className="text-xs font-extrabold text-white">{severityLabel(item.severity)}</Text></View>
           </View>
           <View className="mt-3 flex-row flex-wrap gap-2">
-            <MiniMetric label="粗利益" value={formatCurrency(item.grossProfit)} />
-            <MiniMetric label="利益率" value={item.marginPercent === null ? "未計算" : `${formatNumber(item.marginPercent, 1)}%`} />
-            <MiniMetric label="推定FCR" value={item.fcr === null ? "未計算" : formatNumber(item.fcr, 2)} />
-            <MiniMetric label="販売kg" value={`${formatNumber(item.salesKg, 1)} kg`} />
+            <MiniMetric label="Gross profit" value={formatCurrency(item.grossProfit)} />
+            <MiniMetric label="Margin" value={item.marginPercent === null ? "not calculated" : `${formatNumber(item.marginPercent, 1)}%`} />
+            <MiniMetric label="Estimated FCR" value={item.fcr === null ? "not calculated" : formatNumber(item.fcr, 2)} />
+            <MiniMetric label="Sales kg" value={`${formatNumber(item.salesKg, 1)} kg`} />
           </View>
         </View>
       ))}
@@ -384,8 +384,8 @@ function ImprovementChecklistCard({ items, checked, onToggle }: { items: Improve
     <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
-          <Text className="text-xl font-bold text-foreground">改善チェックリスト</Text>
-          <Text className="mt-1 text-sm leading-5 text-muted">アラート内容から、現場で確認する行動を具体化します。チェック状態はこの画面内だけで管理され、記録の根拠はメモ欄へ残してください。</Text>
+          <Text className="text-xl font-bold text-foreground">Improvement checklist</Text>
+          <Text className="mt-1 text-sm leading-5 text-muted">The app turns alerts into field actions. Check states are kept only on this screen; record evidence in the notes field.</Text>
         </View>
         <Text className="rounded-full bg-background px-3 py-1 text-xs font-extrabold text-muted">{completed}/{items.length}</Text>
       </View>

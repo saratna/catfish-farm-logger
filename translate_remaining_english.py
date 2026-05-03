@@ -1,0 +1,103 @@
+from pathlib import Path
+root = Path('/home/ubuntu/catfish_farm_logger')
+
+def repl_file(rel, mapping):
+    path = root / rel
+    text = path.read_text(errors='ignore')
+    for old, new in mapping.items():
+        text = text.replace(old, new)
+    path.write_text(text)
+
+finance = {
+    'label: "稚魚代"': 'label: "Fingerlings"',
+    'label: "餌代"': 'label: "Feed"',
+    'label: "人件費"': 'label: "Labor"',
+    'label: "電気代"': 'label: "Electricity"',
+    'label: "水道代"': 'label: "Water"',
+    'label: "薬品・衛生"': 'label: "Medicine and hygiene"',
+    'label: "設備保守"': 'label: "Maintenance"',
+    'label: "その他"': 'label: "Other"',
+    'useState("餌代")': 'useState("Feed cost")',
+    'useState("活魚・通常サイズ")': 'useState("Live fish - standard size")',
+    'Alert.alert("金額を確認してください", "稚魚代、餌代、人件費などの支出金額を0より大きい数値で入力してください。")': 'Alert.alert("Check the amount", "Enter a cost amount greater than 0 for fingerlings, feed, labor, or other expenses.")',
+    'Alert.alert("販売数量と単価を確認してください", "販売kgとkg単価を0より大きい数値で入力してください。")': 'Alert.alert("Check sales quantity and price", "Enter sales kg and unit price per kg as numbers greater than 0.")',
+    'placeholder="例: 3mm浮上ペレット"': 'placeholder="Example: 3 mm floating pellet"',
+    'placeholder="例: 18000"': 'placeholder="Example: 18000"',
+    'label="名称"': 'label="Name"',
+    'label="金額"': 'label="Amount"',
+    'label="数量"': 'label="Quantity"',
+    'label="単位"': 'label="Unit"',
+    'label="購入先・担当"': 'label="Vendor or staff"',
+    'label="メモ"': 'label="Notes"',
+    'placeholder="任意"': 'placeholder="Optional"',
+    'placeholder="水槽条件や支払根拠"': 'placeholder="Tank condition or payment reason"',
+    '>コストを保存<': '>Save cost<',
+    '>販売価格入力<': '>Sales record<',
+    '>販売kgと単価から売上を自動計算し、投入コストと比較します。<': '>The app calculates sales from kg and unit price, then compares it with input costs.<',
+    'label="販売先"': 'label="Buyer"',
+    'label="商品・グレード"': 'label="Product and grade"',
+    'label="販売kg"': 'label="Sales kg"',
+    'label="kg単価"': 'label="Unit price per kg"',
+    'placeholder="例: 地元レストラン"': 'placeholder="Example: local restaurant"',
+    'placeholder="例: 活魚 500g以上"': 'placeholder="Example: live fish over 500 g"',
+    'placeholder="例: 12.5"': 'placeholder="Example: 12.5"',
+    'placeholder="例: 900"': 'placeholder="Example: 900"',
+    'placeholder="納品条件・サイズ感"': 'placeholder="Delivery condition and size notes"',
+    '>販売記録を保存<': '>Save sale<',
+    '>一次資料・公的資料からの知見<': '>Knowledge from public and technical sources<',
+    '>研究・普及資料はアプリ内の判断補助として使います。写真チェックは確定診断ではありません。<': '>Research and extension materials are used as decision support inside the app. Photo checks are not a definitive diagnosis.<',
+    '>アプリへの反映: {card.appUse}<': '>How the app uses this: {card.appUse}<',
+    '>最近の収支記録<': '>Recent finance records<',
+    '>まだ収支記録がありません。稚魚代・餌代・販売価格から入力してください。<': '>There are no finance records yet. Start with fingerling cost, feed cost, or sales price.<',
+    'return "危険";': 'return "danger";',
+    'return "注意";': 'return "watch";',
+    'return "安定";': 'return "stable";',
+    '>月次FCR・利益率推移<': '>Monthly FCR and margin trend<',
+    '>選択中の水槽について、月別の推定FCRと粗利益率を同じ時間軸で確認します。FCRは低いほど良く、利益率は高いほど良い指標です。<': '>Review the selected tank by month on the same timeline. Lower FCR and higher gross margin are better indicators.<',
+    '>月別に表示できる収支・給餌・成長記録がまだありません。<': '>There are not enough finance, feeding, and growth records to show a monthly trend yet.<',
+    '>利益率<': '>Margin<',
+    'FCR {item.fcr === null ? "未計算" : formatNumber(item.fcr, 2)} / 利益率 {item.marginPercent === null ? "未計算" : `${formatNumber(item.marginPercent, 1)}%`}': 'FCR {item.fcr === null ? "not calculated" : formatNumber(item.fcr, 2)} / Margin {item.marginPercent === null ? "not calculated" : `${formatNumber(item.marginPercent, 1)}%`}',
+    '>高<': '>High<',
+    '>月<': '>Month<',
+    '>水槽別採算ランキング<': '>Tank profitability ranking<',
+    '>全水槽を売上・費用・粗利益・利益率・FCRで比較します。水槽選択の影響を受けず、農場全体の優先確認先を把握できます。<': '>Compare all tanks by sales, cost, gross profit, margin, and FCR. This ranking is not affected by the selected tank and helps identify farm-wide priorities.<',
+    '>水槽データがありません。<': '>No tank data is available.<',
+    '売上 {formatCurrency(item.totalSales)} / 費用 {formatCurrency(item.totalCost)}': 'Sales {formatCurrency(item.totalSales)} / Cost {formatCurrency(item.totalCost)}',
+    'label="粗利益"': 'label="Gross profit"',
+    'label="利益率"': 'label="Margin"',
+    'label="推定FCR"': 'label="Estimated FCR"',
+    'label="販売kg"': 'label="Sales kg"',
+    'item.marginPercent === null ? "未計算"': 'item.marginPercent === null ? "not calculated"',
+    'item.fcr === null ? "未計算"': 'item.fcr === null ? "not calculated"',
+    '>改善チェックリスト<': '>Improvement checklist<',
+    '>アラート内容から、現場で確認する行動を具体化します。チェック状態はこの画面内だけで管理され、記録の根拠はメモ欄へ残してください。<': '>The app turns alerts into field actions. Check states are kept only on this screen; record evidence in the notes field.<',
+}
+repl_file('app/(tabs)/finance.tsx', finance)
+
+repl_file('lib/economics.ts', {
+    'reason: `推定FCR ${formatNumber(fcr, 2)}、粗利益率 ${formatNumber(summary.marginPercent, 1)}%  together. Both growth efficiency and sales profitability need attention.`': 'reason: `Estimated FCR ${formatNumber(fcr, 2)} and gross margin ${formatNumber(summary.marginPercent, 1)}% are worsening together. Both growth efficiency and sales profitability need attention.`',
+    '`利益率 ${formatNumber(marginPercent, 1)}%`': '`Margin ${formatNumber(marginPercent, 1)}%`',
+    '`餌代比率 ${formatNumber(feedCostSharePercent, 1)}%`': '`Feed cost share ${formatNumber(feedCostSharePercent, 1)}%`',
+})
+repl_file('app/(tabs)/finance.tsx', {
+    'Alert.alert("コストを保存しました", "収支サマリーとGoogle Driveエクスポートに反映されます。")': 'Alert.alert("Cost saved", "The finance summary and Google Drive export will be updated.")',
+    'buyer: buyer.trim() || "未指定の販売先"': 'buyer: buyer.trim() || "Unspecified buyer"',
+    'productGrade: grade.trim() || "未指定グレード"': 'productGrade: grade.trim() || "Unspecified grade"',
+    'Alert.alert("販売記録を保存しました", "売上、粗利益、kgあたりコストを更新しました。")': 'Alert.alert("Sale saved", "Sales, gross profit, and cost per kg have been updated.")',
+    '>稚魚代、餌代、人件費、電気代、水道代などの投入コストと販売価格を同じ水槽・ロットで記録し、粗利益を確認します。<': '>Record input costs such as fingerlings, feed, labor, electricity, and water with sales prices for the same tank or lot, then review gross profit.<',
+    '>対象水槽<': '>Selected tank<',
+    'summary.costPerKgSold === null ? "未計算"': 'summary.costPerKgSold === null ? "not calculated"',
+    '>FCR・利益率アラート<': '>FCR and margin alert<',
+    '>給餌量、平均体重の増加、販売収支を組み合わせ、飼料効率と採算の悪化を早めに確認します。<': '>Combine feed amount, average-weight gain, and sales economics to detect declining feed efficiency and profitability early.<',
+    'managementAlert.fcr === null ? "未計算"': 'managementAlert.fcr === null ? "not calculated"',
+    'label="増加バイオマス"': 'label="Biomass gain"',
+    'managementAlert.biomassGainKg === null ? "未計算"': 'managementAlert.biomassGainKg === null ? "not calculated"',
+    'managementAlert.marginPercent === null ? "未計算"': 'managementAlert.marginPercent === null ? "not calculated"',
+    'label="餌代比率"': 'label="Feed cost share"',
+    'managementAlert.feedCostSharePercent === null ? "未計算"': 'managementAlert.feedCostSharePercent === null ? "not calculated"',
+    '対応: {alert.action}': 'Action: {alert.action}',
+    '>コスト入力<': '>Cost entry<',
+    '>区分を分けると、後から餌代比率や電気・水道の負担を確認できます。<': '>Separate categories so feed-cost share and electricity or water burden can be reviewed later.<',
+    'placeholder="例: 20"': 'placeholder="Example: 20"',
+})
+print('remaining Japanese replacements applied')

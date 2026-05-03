@@ -21,6 +21,8 @@ export default function SettingsScreen() {
   const [minute, setMinute] = useState(String(farm.settings.reminderMinute).padStart(2, "0"));
   const [feedTypes, setFeedTypes] = useState(farm.settings.feedTypes.join(", "));
   const [driveRootFolder, setDriveRootFolder] = useState(farm.settings.driveRootFolder);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(farm.settings.autoSyncEnabled);
+  const [staleSyncWarningDays, setStaleSyncWarningDays] = useState(String(farm.settings.staleSyncWarningDays));
 
   const saveSettings = () => {
     const parsedHour = Number(hour);

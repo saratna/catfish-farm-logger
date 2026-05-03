@@ -91,7 +91,7 @@ describe("Catfish Farm Logger implementation", () => {
       inspection: { waterTempC: 31, dissolvedOxygen: 3.8 },
     });
     expect(advice.recommendedFeedKg).toBeLessThan(7);
-    expect(advice.productAdvice).toContain("低め");
+    expect(advice.productAdvice).toContain("low");
     expect(advice.cautions.length).toBeGreaterThan(1);
   });
 
@@ -105,8 +105,8 @@ describe("Catfish Farm Logger implementation", () => {
 
     const screening = buildPhotoScreeningFromInputs({ ulcers: true, finDamage: true });
     expect(screening.severity).toBe("danger");
-    expect(screening.visibleSigns).toContain("潰瘍・傷");
-    expect(screening.disclaimer).toContain("確定診断ではありません");
+    expect(screening.visibleSigns).toContain("Ulcers or wounds");
+    expect(screening.disclaimer).toContain("not a definitive diagnosis");
   });
   it("calculates economics summary from costs and sales", async () => {
     const { calculateEconomicsSummary } = await import("../lib/economics");
@@ -175,8 +175,8 @@ describe("Catfish Farm Logger implementation", () => {
 
   it("ranks tanks by profitability and creates improvement actions", () => {
     const tanks = [
-      { id: "t1", name: "A水槽", location: "", notes: "", createdAt: "2026-01-01" },
-      { id: "t2", name: "B水槽", location: "", notes: "", createdAt: "2026-01-01" },
+      { id: "t1", name: "Tank A", location: "", notes: "", createdAt: "2026-01-01" },
+      { id: "t2", name: "Tank B", location: "", notes: "", createdAt: "2026-01-01" },
     ];
     const ranking = rankTanksByProfitability(
       tanks,
@@ -196,9 +196,30 @@ describe("Catfish Farm Logger implementation", () => {
     expect(ranking[0].marginPercent).toBe(50);
     expect(ranking[1].grossProfit).toBe(-1000);
 
-    const checklist = buildImprovementChecklist([{ id: "margin_danger", severity: "danger", title: "赤字", reason: "", action: "単価と費用を確認" }]);
-    expect(checklist.some((item) => item.title.includes("費用内訳"))).toBe(true);
+    const checklist = buildImprovementChecklist([{ id: "margin_danger", severity: "danger", title: "Negative margin", reason: "", action: "Check price and costs" }]);
+    expect(checklist.some((item) => item.title.includes("Break costs"))).toBe(true);
     expect(checklist.every((item) => item.priority === "danger")).toBe(true);
+  });
+
+  it("supports Philippines offline-first auto-upload and stale-sync warnings", () => {
+    const store = read("lib/farm-store.tsx");
+    const syncScreen = read("app/(tabs)/sync.tsx");
+    const autoSync = read("components/auto-sync-coordinator.tsx");
+    expect(store).toContain("autoSyncEnabled: true");
+    expect(store).toContain("staleSyncWarningDays: 7");
+    expect(store).toContain("isSyncStale");
+    expect(syncScreen).toContain("Built for field use in the Philippines");
+    expect(syncScreen).toContain("records stay on this phone first");
+    expect(autoSync).toContain("Network.useNetworkState");
+    expect(autoSync).toContain("uploadFarmExportToGoogleDrive");
+  });
+
+  it("keeps generated user-facing advisory text in English", () => {
+    const risks = assessCatfishWeatherRisk({ airTempC: 35, rainMm24h: 55 }, { dissolvedOxygen: 3.5 });
+    expect(risks[0].title).toMatch(/High|Water|Heat|Rain|Low|Routine/);
+    const alert = assessFeedEfficiencyProfitRisk({ costs: [], sales: [], feedings: [], growthMeasurements: [] });
+    expect(alert.title).toMatch(/Business|Profitability/);
+    expect(alert.limitation).toContain("FCR is a simplified estimate");
   });
 
 });
