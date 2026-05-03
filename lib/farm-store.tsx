@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { assessFeedEfficiencyProfitRisk } from "@/lib/economics";
+import { assessFeedEfficiencyProfitRisk, buildImprovementChecklist, buildMonthlyTrend, rankTanksByProfitability } from "@/lib/economics";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from "react";
 
 export type Tank = {
@@ -366,6 +366,8 @@ export type DriveExport = {
   feedProducts: FeedProduct[];
   costEntries: FarmCostEntry[];
   saleRecords: FarmSaleRecord[];
+  monthlyTrend: ReturnType<typeof buildMonthlyTrend>;
+  profitabilityRanking: ReturnType<typeof rankTanksByProfitability>;
   tanks: Array<{
     folder: string;
     tank: Tank;
@@ -377,6 +379,8 @@ export type DriveExport = {
     costEntries: FarmCostEntry[];
     saleRecords: FarmSaleRecord[];
     managementAlert: ReturnType<typeof assessFeedEfficiencyProfitRisk>;
+    monthlyTrend: ReturnType<typeof buildMonthlyTrend>;
+    improvementChecklist: ReturnType<typeof buildImprovementChecklist>;
     files: string[];
   }>;
 };
@@ -506,12 +510,15 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       feedProducts: state.feedProducts,
       costEntries: state.costEntries,
       saleRecords: state.saleRecords,
+      monthlyTrend: buildMonthlyTrend(state.costEntries, state.saleRecords, state.feedings, state.growthMeasurements),
+      profitabilityRanking: rankTanksByProfitability(state.tanks, state.costEntries, state.saleRecords, state.feedings, state.growthMeasurements),
       tanks: state.tanks.map((tank) => {
         const safeName = tank.name.replace(/[^a-zA-Z0-9_-]+/g, "_");
         const tankFeedings = state.feedings.filter((item) => item.tankId === tank.id);
         const tankGrowthMeasurements = state.growthMeasurements.filter((item) => item.tankId === tank.id);
         const tankCosts = state.costEntries.filter((item) => item.tankId === tank.id);
         const tankSales = state.saleRecords.filter((item) => item.tankId === tank.id);
+        const managementAlert = assessFeedEfficiencyProfitRisk({ costs: tankCosts, sales: tankSales, feedings: tankFeedings, growthMeasurements: tankGrowthMeasurements });
         return {
           folder: `${state.settings.driveRootFolder}/${safeName}`,
           tank,
@@ -522,8 +529,10 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
           photoAssessments: state.photoAssessments.filter((item) => item.tankId === tank.id),
           costEntries: tankCosts,
           saleRecords: tankSales,
-          managementAlert: assessFeedEfficiencyProfitRisk({ costs: tankCosts, sales: tankSales, feedings: tankFeedings, growthMeasurements: tankGrowthMeasurements }),
-          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "management-alert.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
+          managementAlert,
+          monthlyTrend: buildMonthlyTrend(tankCosts, tankSales, tankFeedings, tankGrowthMeasurements),
+          improvementChecklist: buildImprovementChecklist(managementAlert.alerts),
+          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "management-alert.json", "monthly-trend.json", "improvement-checklist.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
         };
       }),
     };

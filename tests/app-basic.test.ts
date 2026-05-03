@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { assessCatfishWeatherRisk, assessGrowthTrend, buildFeedingAdvice, buildPhotoScreeningFromInputs } from "../lib/catfish-advisor";
-import { assessFeedEfficiencyProfitRisk } from "../lib/economics";
+import { assessFeedEfficiencyProfitRisk, buildImprovementChecklist, buildMonthlyTrend, rankTanksByProfitability } from "../lib/economics";
 
 const root = process.cwd();
 const read = (relativePath: string) => readFileSync(join(root, relativePath), "utf8");
@@ -146,6 +146,59 @@ describe("Catfish Farm Logger implementation", () => {
     expect(alert.fcr).toBe(3);
     expect(alert.marginPercent).toBeLessThan(0);
     expect(alert.alerts.some((item) => item.id === "combined_feed_profit_danger")).toBe(true);
+  });
+
+
+  it("builds monthly FCR and margin trends from dated records", () => {
+    const trend = buildMonthlyTrend(
+      [
+        { id: "c1", tankId: "t1", createdAt: "2026-01-05T00:00:00.000Z", category: "feed", label: "feed", amount: 1000, notes: "", synced: false },
+        { id: "c2", tankId: "t1", createdAt: "2026-02-05T00:00:00.000Z", category: "feed", label: "feed", amount: 800, notes: "", synced: false },
+      ],
+      [
+        { id: "s1", tankId: "t1", createdAt: "2026-01-28T00:00:00.000Z", buyer: "buyer", productGrade: "regular", quantityKg: 5, unitPrice: 300, totalAmount: 1500, notes: "", synced: false },
+      ],
+      [
+        { id: "f1", tankId: "t1", createdAt: "2026-01-10T00:00:00.000Z", feedType: "pellet", feedAmountKg: 20, averageWeightG: 100, fishCount: 100, notes: "", synced: false },
+      ],
+      [
+        { id: "g1", tankId: "t1", createdAt: "2026-01-01T00:00:00.000Z", lengthCm: 10, weightG: 100, source: "manual", notes: "", synced: false },
+        { id: "g2", tankId: "t1", createdAt: "2026-01-31T00:00:00.000Z", lengthCm: 14, weightG: 200, source: "manual", notes: "", synced: false },
+      ],
+    );
+
+    expect(trend.map((item) => item.month)).toEqual(["2026-01", "2026-02"]);
+    expect(trend[0].marginPercent).toBeCloseTo(33.3, 1);
+    expect(trend[0].fcr).toBe(2);
+    expect(trend[1].marginPercent).toBeNull();
+  });
+
+  it("ranks tanks by profitability and creates improvement actions", () => {
+    const tanks = [
+      { id: "t1", name: "A水槽", location: "", notes: "", createdAt: "2026-01-01" },
+      { id: "t2", name: "B水槽", location: "", notes: "", createdAt: "2026-01-01" },
+    ];
+    const ranking = rankTanksByProfitability(
+      tanks,
+      [
+        { id: "c1", tankId: "t1", createdAt: "2026-01-05T00:00:00.000Z", category: "feed", label: "feed", amount: 1000, notes: "", synced: false },
+        { id: "c2", tankId: "t2", createdAt: "2026-01-05T00:00:00.000Z", category: "feed", label: "feed", amount: 3000, notes: "", synced: false },
+      ],
+      [
+        { id: "s1", tankId: "t1", createdAt: "2026-01-28T00:00:00.000Z", buyer: "buyer", productGrade: "regular", quantityKg: 5, unitPrice: 400, totalAmount: 2000, notes: "", synced: false },
+        { id: "s2", tankId: "t2", createdAt: "2026-01-28T00:00:00.000Z", buyer: "buyer", productGrade: "regular", quantityKg: 5, unitPrice: 400, totalAmount: 2000, notes: "", synced: false },
+      ],
+      [],
+      [],
+    );
+
+    expect(ranking[0].tankId).toBe("t1");
+    expect(ranking[0].marginPercent).toBe(50);
+    expect(ranking[1].grossProfit).toBe(-1000);
+
+    const checklist = buildImprovementChecklist([{ id: "margin_danger", severity: "danger", title: "赤字", reason: "", action: "単価と費用を確認" }]);
+    expect(checklist.some((item) => item.title.includes("費用内訳"))).toBe(true);
+    expect(checklist.every((item) => item.priority === "danger")).toBe(true);
   });
 
 });

@@ -1,4 +1,4 @@
-import type { FarmCostEntry, FarmSaleRecord, Feeding, GrowthMeasurement } from "@/lib/farm-store";
+import type { FarmCostEntry, FarmSaleRecord, Feeding, GrowthMeasurement, Tank } from "@/lib/farm-store";
 
 export type EconomicsSummary = {
   totalCost: number;
@@ -32,6 +32,41 @@ export type FeedEfficiencyProfitAlert = {
   fishCountUsed: number | null;
   alerts: ManagementAlert[];
   limitation: string;
+};
+
+export type MonthlyEconomicsTrendPoint = {
+  month: string;
+  label: string;
+  totalCost: number;
+  totalSales: number;
+  grossProfit: number;
+  marginPercent: number | null;
+  fcr: number | null;
+  totalFeedKg: number;
+  biomassGainKg: number | null;
+  salesKg: number;
+};
+
+export type TankProfitabilityRank = {
+  rank: number;
+  tankId: string;
+  tankName: string;
+  totalCost: number;
+  totalSales: number;
+  grossProfit: number;
+  marginPercent: number | null;
+  costPerKgSold: number | null;
+  salesKg: number;
+  fcr: number | null;
+  severity: ManagementAlertSeverity;
+};
+
+export type ImprovementChecklistItem = {
+  id: string;
+  alertId: string;
+  priority: ManagementAlertSeverity;
+  title: string;
+  detail: string;
 };
 
 export function calculateEconomicsSummary(costs: FarmCostEntry[], sales: FarmSaleRecord[]): EconomicsSummary {
@@ -165,6 +200,104 @@ export function assessFeedEfficiencyProfitRisk(input: {
   };
 }
 
+export function buildMonthlyTrend(costs: FarmCostEntry[], sales: FarmSaleRecord[], feedings: Feeding[], growthMeasurements: GrowthMeasurement[]): MonthlyEconomicsTrendPoint[] {
+  const months = new Set<string>();
+  [...costs, ...sales, ...feedings, ...growthMeasurements].forEach((item) => {
+    const month = toMonthKey(item.createdAt);
+    if (month) months.add(month);
+  });
+
+  return [...months]
+    .sort()
+    .map((month) => {
+      const monthCosts = costs.filter((item) => toMonthKey(item.createdAt) === month);
+      const monthSales = sales.filter((item) => toMonthKey(item.createdAt) === month);
+      const monthFeedings = feedings.filter((item) => toMonthKey(item.createdAt) === month);
+      const monthGrowth = growthMeasurements.filter((item) => toMonthKey(item.createdAt) === month);
+      const summary = calculateEconomicsSummary(monthCosts, monthSales);
+      const totalFeedKg = monthFeedings.reduce((sum, item) => sum + safeNumber(item.feedAmountKg), 0);
+      const fishCountUsed = getLatestFishCount(monthFeedings);
+      const biomassGainKg = estimateBiomassGainKg(monthGrowth, fishCountUsed);
+      const fcr = biomassGainKg !== null && biomassGainKg > 0 ? totalFeedKg / biomassGainKg : null;
+
+      return {
+        month,
+        label: `${Number(month.slice(5, 7))}月`,
+        totalCost: summary.totalCost,
+        totalSales: summary.totalSales,
+        grossProfit: summary.grossProfit,
+        marginPercent: summary.marginPercent === null ? null : Number(summary.marginPercent.toFixed(1)),
+        fcr: fcr === null ? null : Number(fcr.toFixed(2)),
+        totalFeedKg,
+        biomassGainKg: biomassGainKg === null ? null : Number(biomassGainKg.toFixed(2)),
+        salesKg: summary.salesKg,
+      };
+    });
+}
+
+export function rankTanksByProfitability(tanks: Tank[], costs: FarmCostEntry[], sales: FarmSaleRecord[], feedings: Feeding[], growthMeasurements: GrowthMeasurement[]): TankProfitabilityRank[] {
+  return tanks
+    .map((tank) => {
+      const tankCosts = costs.filter((item) => item.tankId === tank.id);
+      const tankSales = sales.filter((item) => item.tankId === tank.id);
+      const tankFeedings = feedings.filter((item) => item.tankId === tank.id);
+      const tankGrowth = growthMeasurements.filter((item) => item.tankId === tank.id);
+      const summary = calculateEconomicsSummary(tankCosts, tankSales);
+      const alert = assessFeedEfficiencyProfitRisk({ costs: tankCosts, sales: tankSales, feedings: tankFeedings, growthMeasurements: tankGrowth });
+      return {
+        rank: 0,
+        tankId: tank.id,
+        tankName: tank.name,
+        totalCost: summary.totalCost,
+        totalSales: summary.totalSales,
+        grossProfit: summary.grossProfit,
+        marginPercent: summary.marginPercent === null ? null : Number(summary.marginPercent.toFixed(1)),
+        costPerKgSold: summary.costPerKgSold === null ? null : Number(summary.costPerKgSold.toFixed(0)),
+        salesKg: summary.salesKg,
+        fcr: alert.fcr,
+        severity: alert.severity,
+      } satisfies TankProfitabilityRank;
+    })
+    .sort((a, b) => {
+      const aHasSales = a.marginPercent !== null ? 1 : 0;
+      const bHasSales = b.marginPercent !== null ? 1 : 0;
+      if (aHasSales !== bHasSales) return bHasSales - aHasSales;
+      if (a.marginPercent !== b.marginPercent) return (b.marginPercent ?? -Infinity) - (a.marginPercent ?? -Infinity);
+      if (a.grossProfit !== b.grossProfit) return b.grossProfit - a.grossProfit;
+      return a.tankName.localeCompare(b.tankName);
+    })
+    .map((item, index) => ({ ...item, rank: index + 1 }));
+}
+
+export function buildImprovementChecklist(alerts: ManagementAlert[]): ImprovementChecklistItem[] {
+  const items: ImprovementChecklistItem[] = [];
+  const add = (alert: ManagementAlert, suffix: string, title: string, detail: string) => {
+    if (items.some((item) => item.id === `${alert.id}_${suffix}`)) return;
+    items.push({ id: `${alert.id}_${suffix}`, alertId: alert.id, priority: alert.severity, title, detail });
+  };
+
+  alerts.filter((alert) => alert.severity !== "normal").forEach((alert) => {
+    if (alert.id.includes("combined_feed_profit")) {
+      add(alert, "same_day_review", "給餌・水質・販売条件を同日に確認", "FCRと利益率が同時に悪化しているため、給餌量、残餌、水質、疾病サイン、販売単価、固定費配賦を同じ日に照合します。");
+      add(alert, "next_feed_adjust", "次回給餌を控えめに設定", "食い付きと残餌を見ながら一時的に給餌率を下げ、増体測定後に戻すか判断します。");
+    } else if (alert.id.includes("fcr")) {
+      add(alert, "feeding_observation", "残餌・食い付き・給餌時刻を記録", "食べ残し、沈下餌の滞留、給餌時間帯、粒径と魚体サイズのずれを確認します。");
+      add(alert, "growth_sampling", "平均体重と推定尾数を再測定", "同じ水槽で複数個体を測り、死亡・選別・尾数変化を補正してFCRの分母を見直します。");
+      add(alert, "water_quality", "溶存酸素・アンモニア・水温を確認", "摂餌低下や増体停滞の背景として、水質と急な環境変化を点検します。");
+    } else if (alert.id.includes("margin")) {
+      add(alert, "cost_breakdown", "費用内訳を餌代・電気水道・人件費に分解", "どの費目が粗利益を圧迫しているかを分け、削減できる固定費と変動費を切り分けます。");
+      add(alert, "sales_price", "販売単価と出荷グレードを見直し", "サイズ、歩留まり、販売先、納品条件を比較し、単価交渉や出荷タイミングの余地を確認します。");
+    } else if (alert.id.includes("feed_cost_share")) {
+      add(alert, "feed_contract", "飼料銘柄・粒径・仕入条件を比較", "同じ増体に対してより少ない投入量または低いkg単価で済む選択肢がないか確認します。");
+      add(alert, "feed_storage", "飼料の保管状態を点検", "吸湿、酸化、粉化があると食い付きと効率が落ちるため、ロットと保存場所を確認します。");
+    }
+
+    add(alert, "record_evidence", "判断根拠をメモへ残す", alert.action);
+  });
+
+  return items;
+}
+
 function summarizeManagementSeverity(alerts: ManagementAlert[]): ManagementAlertSeverity {
   if (alerts.some((item) => item.severity === "danger")) return "danger";
   if (alerts.some((item) => item.severity === "watch")) return "watch";
@@ -197,6 +330,13 @@ function estimateBiomassGainKg(measurements: GrowthMeasurement[], fishCount: num
   const gainG = safeNumber(last.weightG) - safeNumber(first.weightG);
   if (gainG <= 0) return null;
   return (gainG * fishCount) / 1000;
+}
+
+function toMonthKey(value: string) {
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return null;
+  const date = new Date(time);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function safeNumber(value: number | undefined) {

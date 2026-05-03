@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Linking, Text, TextInput, TouchableOpacity, View } from "react-native";
+import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { catfishKnowledgeCards } from "@/lib/catfish-knowledge";
-import { assessFeedEfficiencyProfitRisk, calculateEconomicsSummary, formatCurrency, formatNumber } from "@/lib/economics";
+import { assessFeedEfficiencyProfitRisk, buildImprovementChecklist, buildMonthlyTrend, calculateEconomicsSummary, formatCurrency, formatNumber, rankTanksByProfitability } from "@/lib/economics";
+import type { ImprovementChecklistItem, MonthlyEconomicsTrendPoint, TankProfitabilityRank } from "@/lib/economics";
 import type { FarmCostCategory } from "@/lib/farm-store";
 import { formatShortDate, useFarm } from "@/lib/farm-store";
 
@@ -35,6 +37,7 @@ export default function FinanceScreen() {
   const [saleKg, setSaleKg] = useState("");
   const [unitPrice, setUnitPrice] = useState("");
   const [saleNotes, setSaleNotes] = useState("");
+  const [checkedImprovements, setCheckedImprovements] = useState<Record<string, boolean>>({});
 
   const scopedCosts = useMemo(() => farm.costEntries.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.costEntries, selectedTankId]);
   const scopedSales = useMemo(() => farm.saleRecords.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.saleRecords, selectedTankId]);
@@ -42,6 +45,9 @@ export default function FinanceScreen() {
   const scopedGrowthMeasurements = useMemo(() => farm.growthMeasurements.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.growthMeasurements, selectedTankId]);
   const summary = useMemo(() => calculateEconomicsSummary(scopedCosts, scopedSales), [scopedCosts, scopedSales]);
   const managementAlert = useMemo(() => assessFeedEfficiencyProfitRisk({ costs: scopedCosts, sales: scopedSales, feedings: scopedFeedings, growthMeasurements: scopedGrowthMeasurements }), [scopedCosts, scopedSales, scopedFeedings, scopedGrowthMeasurements]);
+  const monthlyTrend = useMemo(() => buildMonthlyTrend(scopedCosts, scopedSales, scopedFeedings, scopedGrowthMeasurements), [scopedCosts, scopedSales, scopedFeedings, scopedGrowthMeasurements]);
+  const profitabilityRanking = useMemo(() => rankTanksByProfitability(farm.tanks, farm.costEntries, farm.saleRecords, farm.feedings, farm.growthMeasurements), [farm.tanks, farm.costEntries, farm.saleRecords, farm.feedings, farm.growthMeasurements]);
+  const improvementChecklist = useMemo(() => buildImprovementChecklist(managementAlert.alerts), [managementAlert.alerts]);
   const recentRows = useMemo(() => {
     const costRows = scopedCosts.slice(0, 8).map((item) => ({ id: item.id, kind: "cost" as const, title: item.label, amount: -item.amount, detail: `${categoryLabel(item.category)} · ${formatShortDate(item.createdAt)}` }));
     const saleRows = scopedSales.slice(0, 8).map((item) => ({ id: item.id, kind: "sale" as const, title: item.buyer || item.productGrade, amount: item.totalAmount, detail: `${formatNumber(item.quantityKg)} kg × ${formatCurrency(item.unitPrice)} · ${formatShortDate(item.createdAt)}` }));
@@ -149,6 +155,15 @@ export default function FinanceScreen() {
               ))}
               <Text className="mt-3 text-xs leading-5 text-muted">{managementAlert.limitation}</Text>
             </View>
+
+            <MonthlyTrendCard trend={monthlyTrend} />
+            <ProfitabilityRankingCard ranking={profitabilityRanking} />
+            <ImprovementChecklistCard
+              items={improvementChecklist}
+              checked={checkedImprovements}
+              onToggle={(id) => setCheckedImprovements((current) => ({ ...current, [id]: !current[id] }))}
+            />
+
 
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
               <Text className="text-xl font-bold text-foreground">コスト入力</Text>
@@ -267,6 +282,124 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
     <View className="min-w-[47%] flex-1 rounded-2xl bg-background p-3">
       <Text className="text-xs font-bold text-muted">{label}</Text>
       <Text className="mt-1 text-base font-extrabold text-foreground">{value}</Text>
+    </View>
+  );
+}
+
+
+function MonthlyTrendCard({ trend }: { trend: MonthlyEconomicsTrendPoint[] }) {
+  return (
+    <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+      <Text className="text-xl font-bold text-foreground">月次FCR・利益率推移</Text>
+      <Text className="mt-1 text-sm leading-5 text-muted">選択中の水槽について、月別の推定FCRと粗利益率を同じ時間軸で確認します。FCRは低いほど良く、利益率は高いほど良い指標です。</Text>
+      {trend.length === 0 ? (
+        <Text className="mt-4 rounded-2xl bg-background p-4 text-sm leading-5 text-muted">月別に表示できる収支・給餌・成長記録がまだありません。</Text>
+      ) : (
+        <>
+          <DualLineChart trend={trend.slice(-6)} />
+          <View className="mt-3 flex-row gap-3">
+            <View className="flex-row items-center gap-2"><View className="h-2 w-5 rounded-full bg-primary" /><Text className="text-xs font-bold text-muted">FCR</Text></View>
+            <View className="flex-row items-center gap-2"><View className="h-2 w-5 rounded-full bg-success" /><Text className="text-xs font-bold text-muted">利益率</Text></View>
+          </View>
+          {trend.slice(-3).map((item) => (
+            <View key={item.month} className="mt-3 flex-row items-center justify-between rounded-2xl bg-background p-3">
+              <Text className="font-bold text-foreground">{item.label}</Text>
+              <Text className="text-sm text-muted">FCR {item.fcr === null ? "未計算" : formatNumber(item.fcr, 2)} / 利益率 {item.marginPercent === null ? "未計算" : `${formatNumber(item.marginPercent, 1)}%`}</Text>
+            </View>
+          ))}
+        </>
+      )}
+    </View>
+  );
+}
+
+function DualLineChart({ trend }: { trend: MonthlyEconomicsTrendPoint[] }) {
+  const width = 320;
+  const height = 170;
+  const padding = 28;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+  const fcrValues = trend.map((item) => item.fcr).filter((value): value is number => value !== null);
+  const marginValues = trend.map((item) => item.marginPercent).filter((value): value is number => value !== null);
+  const maxFcr = Math.max(3, ...fcrValues);
+  const minMargin = Math.min(0, ...marginValues);
+  const maxMargin = Math.max(30, ...marginValues);
+  const x = (index: number) => padding + (trend.length <= 1 ? chartWidth / 2 : (chartWidth * index) / (trend.length - 1));
+  const yFcr = (value: number) => padding + chartHeight - (Math.min(value, maxFcr) / maxFcr) * chartHeight;
+  const yMargin = (value: number) => padding + chartHeight - ((value - minMargin) / Math.max(1, maxMargin - minMargin)) * chartHeight;
+  const fcrPoints = trend.map((item, index) => (item.fcr === null ? null : `${x(index)},${yFcr(item.fcr)}`)).filter(Boolean).join(" ");
+  const marginPoints = trend.map((item, index) => (item.marginPercent === null ? null : `${x(index)},${yMargin(item.marginPercent)}`)).filter(Boolean).join(" ");
+
+  return (
+    <View className="mt-4 items-center rounded-2xl bg-background p-2">
+      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+        <Line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#CBD5E1" strokeWidth="1" />
+        <Line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#CBD5E1" strokeWidth="1" />
+        <SvgText x={padding} y={18} fontSize="10" fill="#64748B">高</SvgText>
+        <SvgText x={width - padding - 28} y={height - 8} fontSize="10" fill="#64748B">月</SvgText>
+        {fcrPoints ? <Polyline points={fcrPoints} fill="none" stroke="#0A7EA4" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
+        {marginPoints ? <Polyline points={marginPoints} fill="none" stroke="#22C55E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /> : null}
+        {trend.map((item, index) => (
+          <SvgText key={`label-${item.month}`} x={x(index) - 10} y={height - 10} fontSize="10" fill="#64748B">{item.label}</SvgText>
+        ))}
+        {trend.map((item, index) => item.fcr === null ? null : <Circle key={`fcr-${item.month}`} cx={x(index)} cy={yFcr(item.fcr)} r="4" fill="#0A7EA4" />)}
+        {trend.map((item, index) => item.marginPercent === null ? null : <Circle key={`margin-${item.month}`} cx={x(index)} cy={yMargin(item.marginPercent)} r="4" fill="#22C55E" />)}
+      </Svg>
+    </View>
+  );
+}
+
+function ProfitabilityRankingCard({ ranking }: { ranking: TankProfitabilityRank[] }) {
+  return (
+    <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+      <Text className="text-xl font-bold text-foreground">水槽別採算ランキング</Text>
+      <Text className="mt-1 text-sm leading-5 text-muted">全水槽を売上・費用・粗利益・利益率・FCRで比較します。水槽選択の影響を受けず、農場全体の優先確認先を把握できます。</Text>
+      {ranking.length === 0 ? (
+        <Text className="mt-4 rounded-2xl bg-background p-4 text-sm text-muted">水槽データがありません。</Text>
+      ) : ranking.map((item) => (
+        <View key={item.tankId} className="mt-3 rounded-2xl bg-background p-4">
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="flex-1">
+              <Text className="text-base font-extrabold text-foreground">#{item.rank} {item.tankName}</Text>
+              <Text className="mt-1 text-xs text-muted">売上 {formatCurrency(item.totalSales)} / 費用 {formatCurrency(item.totalCost)}</Text>
+            </View>
+            <View className={`rounded-full px-3 py-1 ${severityBadgeClass(item.severity)}`}><Text className="text-xs font-extrabold text-white">{severityLabel(item.severity)}</Text></View>
+          </View>
+          <View className="mt-3 flex-row flex-wrap gap-2">
+            <MiniMetric label="粗利益" value={formatCurrency(item.grossProfit)} />
+            <MiniMetric label="利益率" value={item.marginPercent === null ? "未計算" : `${formatNumber(item.marginPercent, 1)}%`} />
+            <MiniMetric label="推定FCR" value={item.fcr === null ? "未計算" : formatNumber(item.fcr, 2)} />
+            <MiniMetric label="販売kg" value={`${formatNumber(item.salesKg, 1)} kg`} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ImprovementChecklistCard({ items, checked, onToggle }: { items: ImprovementChecklistItem[]; checked: Record<string, boolean>; onToggle: (id: string) => void }) {
+  if (items.length === 0) return null;
+  const completed = items.filter((item) => checked[item.id]).length;
+  return (
+    <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+      <View className="flex-row items-start justify-between gap-3">
+        <View className="flex-1">
+          <Text className="text-xl font-bold text-foreground">改善チェックリスト</Text>
+          <Text className="mt-1 text-sm leading-5 text-muted">アラート内容から、現場で確認する行動を具体化します。チェック状態はこの画面内だけで管理され、記録の根拠はメモ欄へ残してください。</Text>
+        </View>
+        <Text className="rounded-full bg-background px-3 py-1 text-xs font-extrabold text-muted">{completed}/{items.length}</Text>
+      </View>
+      {items.map((item) => (
+        <TouchableOpacity key={item.id} className="mt-3 flex-row gap-3 rounded-2xl bg-background p-4 active:opacity-80" onPress={() => onToggle(item.id)}>
+          <View className={`mt-1 h-6 w-6 items-center justify-center rounded-full border ${checked[item.id] ? "border-success bg-success" : "border-border"}`}>
+            <Text className="text-xs font-extrabold text-white">{checked[item.id] ? "✓" : ""}</Text>
+          </View>
+          <View className="flex-1">
+            <Text className={`text-sm font-extrabold ${item.priority === "danger" ? "text-error" : "text-warning"}`}>{item.title}</Text>
+            <Text className="mt-1 text-sm leading-5 text-muted">{item.detail}</Text>
+          </View>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
