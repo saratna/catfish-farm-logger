@@ -304,6 +304,8 @@ export async function uploadFarmExportToGoogleDrive(exportPayload: DriveExport) 
       { name: "inspections.json", value: tankExport.inspections },
       { name: "feedings.json", value: tankExport.feedings },
       { name: "photos.json", value: tankExport.photos },
+      { name: "growth-measurements.json", value: tankExport.growthMeasurements },
+      { name: "photo-assessments.json", value: tankExport.photoAssessments },
       { name: "sync-log.json", value: { generatedAt: exportPayload.generatedAt, folder: tankExport.folder } },
     ];
 

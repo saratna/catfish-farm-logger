@@ -48,6 +48,42 @@ export type FeedingAdvice = {
   cautions: string[];
 };
 
+export type GrowthMeasurementInput = {
+  createdAt: string;
+  lengthCm: number;
+  weightG: number;
+};
+
+export type GrowthAssessment = {
+  status: "insufficient" | "good" | "slow" | "rapid" | "decline";
+  severity: "normal" | "watch" | "danger";
+  title: string;
+  summary: string;
+  dailyWeightGainPercent?: number;
+  lengthGainCm?: number;
+  comparedDays?: number;
+  recommendation: string;
+};
+
+export type VisibleHealthSigns = {
+  redness?: boolean;
+  ulcers?: boolean;
+  whiteSpots?: boolean;
+  finDamage?: boolean;
+  swollenBelly?: boolean;
+  popeye?: boolean;
+  abnormalColor?: boolean;
+};
+
+export type PhotoScreening = {
+  severity: "normal" | "watch" | "danger";
+  title: string;
+  summary: string;
+  visibleSigns: string[];
+  recommendation: string;
+  disclaimer: string;
+};
+
 function highestSeverity(items: RiskAssessment[]): WeatherSeverity {
   if (items.some((item) => item.severity === "danger")) return "danger";
   if (items.some((item) => item.severity === "watch")) return "watch";
@@ -224,5 +260,109 @@ export function buildFeedingAdvice(input: FeedingAdviceInput): FeedingAdvice {
     summary: `${amountText} 目安は推定バイオマスの${rate.toFixed(2)}%です。実際の残餌、食いつき、水質で調整してください。`,
     productAdvice,
     cautions,
+  };
+}
+
+export function assessGrowthTrend(measurements: GrowthMeasurementInput[]): GrowthAssessment {
+  const ordered = [...measurements]
+    .filter((item) => Number.isFinite(item.lengthCm) && Number.isFinite(item.weightG))
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  if (ordered.length < 2) {
+    return {
+      status: "insufficient",
+      severity: "watch",
+      title: "成長データ不足",
+      summary: "成長傾向を見るには、同じ水槽で少なくとも2回以上の体長・体重記録が必要です。",
+      recommendation: "測定方法をそろえ、次回も体長cmと体重gを記録してください。写真だけで断定しないでください。",
+    };
+  }
+
+  const previous = ordered[ordered.length - 2];
+  const latest = ordered[ordered.length - 1];
+  const days = Math.max(1, Math.round((new Date(latest.createdAt).getTime() - new Date(previous.createdAt).getTime()) / 86_400_000));
+  const weightGain = latest.weightG - previous.weightG;
+  const lengthGain = latest.lengthCm - previous.lengthCm;
+  const dailyWeightGainPercent = previous.weightG > 0 ? ((latest.weightG / previous.weightG) ** (1 / days) - 1) * 100 : 0;
+
+  if (weightGain < 0 || lengthGain < -0.5) {
+    return {
+      status: "decline",
+      severity: "danger",
+      title: "体重低下に注意",
+      summary: `前回より体重が${Math.abs(weightGain).toFixed(1)}g変化しています。測定誤差の可能性もありますが、食いつき・水質・外観を確認してください。`,
+      dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
+      lengthGainCm: Number(lengthGain.toFixed(1)),
+      comparedDays: days,
+      recommendation: "測定器と個体条件を確認し、食欲低下、低酸素、赤み、潰瘍、腹部膨満があれば早めに隔離や専門家相談を検討してください。",
+    };
+  }
+
+  if (dailyWeightGainPercent < 0.15 && days >= 3) {
+    return {
+      status: "slow",
+      severity: "watch",
+      title: "成長停滞ぎみ",
+      summary: `${days}日間の体重増加が小さく、日あたり約${dailyWeightGainPercent.toFixed(2)}%です。`,
+      dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
+      lengthGainCm: Number(lengthGain.toFixed(1)),
+      comparedDays: days,
+      recommendation: "給餌量、餌の粒径・タンパク質、水温、溶存酸素、残餌を合わせて確認してください。",
+    };
+  }
+
+  if (dailyWeightGainPercent > 5 || latest.weightG > previous.weightG * 1.8) {
+    return {
+      status: "rapid",
+      severity: "watch",
+      title: "急変値を確認",
+      summary: `前回からの増加が大きく、測定個体の違いや入力ミスの確認が必要です。`,
+      dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
+      lengthGainCm: Number(lengthGain.toFixed(1)),
+      comparedDays: days,
+      recommendation: "同じ測定条件か確認し、必要なら再測定してください。腹部膨満など外観異常がある場合は病気の可能性も確認してください。",
+    };
+  }
+
+  return {
+    status: "good",
+    severity: "normal",
+    title: "成長は順調傾向",
+    summary: `${days}日間で体重が${weightGain.toFixed(1)}g、体長が${lengthGain.toFixed(1)}cm変化しています。`,
+    dailyWeightGainPercent: Number(dailyWeightGainPercent.toFixed(2)),
+    lengthGainCm: Number(lengthGain.toFixed(1)),
+    comparedDays: days,
+    recommendation: "この傾向を維持しつつ、毎日の水温・溶存酸素・食いつきも合わせて記録してください。",
+  };
+}
+
+export function buildPhotoScreeningFromInputs(signs: VisibleHealthSigns): PhotoScreening {
+  const visibleSigns = [
+    signs.redness ? "赤み・出血斑" : undefined,
+    signs.ulcers ? "潰瘍・傷" : undefined,
+    signs.whiteSpots ? "白点・綿状付着" : undefined,
+    signs.finDamage ? "ヒレ損傷" : undefined,
+    signs.swollenBelly ? "腹部膨満" : undefined,
+    signs.popeye ? "眼の突出" : undefined,
+    signs.abnormalColor ? "体色異常" : undefined,
+  ].filter(Boolean) as string[];
+
+  const severe = signs.ulcers || signs.swollenBelly || signs.popeye;
+  const severity = severe ? "danger" : visibleSigns.length > 0 ? "watch" : "normal";
+  const title = severity === "danger" ? "強い注意サイン" : severity === "watch" ? "外観注意サイン" : "目立つ外観異常なし";
+  const recommendation =
+    severity === "danger"
+      ? "水質測定、食いつき、遊泳状態を確認し、悪化や死亡がある場合は隔離・専門家相談を検討してください。"
+      : severity === "watch"
+        ? "同じ個体を継続観察し、水温・溶存酸素・アンモニア・亜硝酸を確認してください。"
+        : "写真で見える範囲では大きな異常は選択されていません。日々の食いつきと水質確認は継続してください。";
+
+  return {
+    severity,
+    title,
+    summary: visibleSigns.length ? `選択された外観サイン: ${visibleSigns.join("、")}` : "選択された外観サインはありません。",
+    visibleSigns,
+    recommendation,
+    disclaimer: "写真チェックは確定診断ではありません。病名の断定ではなく、飼育者の観察、水質測定、必要時の専門家相談を補助するものです。",
   };
 }

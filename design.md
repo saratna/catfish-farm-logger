@@ -112,3 +112,36 @@ Google Driveへの直接自動アップロードは、Androidアプリ側でGoog
 | リスク判定 | 対象日時、リスク種別、重要度、理由、推奨行動、確認済み | `/CatfishFarmLogger/risk-alerts.json` |
 | 餌商品 | 商品名、タンパク質率、粒径、浮上/沈降、製造日、メモ | `/CatfishFarmLogger/feed-products.json` |
 | 給餌助言 | 推奨量、算出理由、気象条件、魚体重、残餌・食いつき | `/CatfishFarmLogger/{tankName}/feeding-advice.json` |
+
+## 成長計測・写真診断の追加設計
+
+成長計測画面は、手入力の体長・体重記録を中心にしつつ、写真からの参考推定と外観異常チェックを同じ画面で扱う。屋外で魚を保持しながら操作する場面を想定し、画面上部には直近の成長状態、中央には入力フォーム、下部には「写真を撮る」「写真を選ぶ」「保存」の主要操作を配置する。写真診断は病名を断定せず、**外観上の注意サインを見つける補助機能**として明示する。
+
+| 追加画面 | 主な内容 | 主な操作 |
+|---|---|---|
+| 成長・写真診断 | 直近の平均体長・体重、成長状態、写真チェック結果、履歴 | 体長・体重入力、写真撮影、写真選択、AIチェック、保存 |
+| 成長履歴詳細 | 測定日、体長、体重、推定値、メモ、写真サムネイル | 履歴確認、異常値確認 |
+| 写真チェック結果 | 推定体長・推定体重、見える外観サイン、信頼度、確認推奨項目 | 結果確認、測定記録へ反映、専門家相談メモ |
+
+成長判定は、直近2点以上の測定履歴から体重ベースの増加率を計算し、「順調」「やや停滞」「急変注意」「データ不足」のような現場向けの短い状態文に変換する。MSU Extension が示すように、給餌・水質・魚体サイズ・飼育方式が成長に影響するため、判定は標準値との厳密比較ではなく、**同じ水槽内の履歴変化を主軸にした傾向表示**とする。
+
+写真チェックでは、UF/IFAS Extension と SRAC が示す魚病の初期観察項目に合わせ、赤み・出血斑、潰瘍、腹部膨満、眼の突出、ヒレの損傷、白点または綿状付着、体色の異常、痩せまたは極端な膨らみを確認する。結果カードには「水質測定を確認」「食いつき低下が続く場合は隔離・専門家相談」など、次の行動を短く表示する。
+
+| 追加データ | ローカル保存内容 | Drive上の想定配置 |
+|---|---|---|
+| 成長測定 | ID、水槽ID、測定日時、体長cm、体重g、写真URI、メモ、作成日時 | `/CatfishFarmLogger/{tankName}/growth-measurements.json` |
+| 写真AIチェック | 測定ID、画像URI、推定体長cm、推定体重g、外観サイン、信頼度、推奨行動、注意書き | `/CatfishFarmLogger/{tankName}/photo-assessments.json` |
+| 成長判定 | 対象水槽、対象期間、体重増加率、体長増加、判定、理由 | `/CatfishFarmLogger/{tankName}/growth-status.json` |
+
+| 追加フロー | 手順 | 完了状態 |
+|---|---|---|
+| 手入力で成長記録 | 成長タブ → 水槽選択 → 体長・体重入力 → メモ確認 → 保存 | 成長履歴に測定値が追加され、状態が再計算される |
+| 写真から参考推定 | 成長タブ → 写真を撮る/選ぶ → AIチェック → 推定値を確認 → 必要なら手入力で補正 → 保存 | 写真URIとチェック結果が測定記録に紐づく |
+| 異常サイン確認 | 写真チェック結果 → 赤み・潰瘍・膨満などの表示確認 → 水質測定または専門家相談メモ | 記録に注意サインと推奨行動が残る |
+
+## References for growth/photo feature
+
+[4]: https://extension.msstate.edu/agriculture/catfish/diseases-catfish "Mississippi State University Extension — Diseases of Catfish"
+[5]: https://extension.msstate.edu/agriculture/catfish/catfish-feeds-and-feeding "Mississippi State University Extension — Catfish Feeds and Feeding"
+[6]: https://ask.ifas.ufl.edu/publication/FA004 "UF/IFAS Extension — Introduction to Fish Health Management"
+[7]: https://srac.msstate.edu/pdfs/Fact%20Sheets/477%20Enteric%20Septicemia%20of%20Catfish.pdf "SRAC Publication No. 477 — Enteric Septicemia of Catfish"

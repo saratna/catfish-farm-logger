@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { assessCatfishWeatherRisk, buildFeedingAdvice } from "../lib/catfish-advisor";
+import { assessCatfishWeatherRisk, assessGrowthTrend, buildFeedingAdvice, buildPhotoScreeningFromInputs } from "../lib/catfish-advisor";
 
 const root = process.cwd();
 const read = (relativePath: string) => readFileSync(join(root, relativePath), "utf8");
@@ -21,14 +21,18 @@ describe("Catfish Farm Logger implementation", () => {
     expect(store).toContain("generateDrivePayload");
     expect(store).toContain("todaysMissingTankIds");
     expect(store).toContain("pendingSyncCount");
+    expect(store).toContain("growthMeasurements");
+    expect(store).toContain("photoAssessments");
   });
 
-  it("contains record inputs for inspection, feeding, weight, and photos", () => {
+  it("contains record inputs for inspection, feeding, weight, growth, and photos", () => {
     const records = read("app/(tabs)/records.tsx");
     expect(records).toContain("Daily inspection");
     expect(records).toContain("Water °C");
     expect(records).toContain("Avg weight g");
     expect(records).toContain("Add photo");
+    expect(records).toContain("Growth and photo check");
+    expect(records).toContain("AI photo check");
   });
 
   it("includes EAS configuration for iOS production builds", () => {
@@ -88,5 +92,19 @@ describe("Catfish Farm Logger implementation", () => {
     expect(advice.recommendedFeedKg).toBeLessThan(7);
     expect(advice.productAdvice).toContain("低め");
     expect(advice.cautions.length).toBeGreaterThan(1);
+  });
+
+  it("assesses growth trend and visible photo health signs", () => {
+    const trend = assessGrowthTrend([
+      { createdAt: "2026-05-01T00:00:00.000Z", lengthCm: 20, weightG: 100 },
+      { createdAt: "2026-05-06T00:00:00.000Z", lengthCm: 22.5, weightG: 120 },
+    ]);
+    expect(trend.status).toBe("good");
+    expect(trend.dailyWeightGainPercent).toBeGreaterThan(0);
+
+    const screening = buildPhotoScreeningFromInputs({ ulcers: true, finDamage: true });
+    expect(screening.severity).toBe("danger");
+    expect(screening.visibleSigns).toContain("潰瘍・傷");
+    expect(screening.disclaimer).toContain("確定診断ではありません");
   });
 });
