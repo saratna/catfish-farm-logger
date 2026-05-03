@@ -23,6 +23,7 @@ const MAPPING = {
   "gearshape.fill": "settings",
   "cloud.rain.fill": "thunderstorm",
   "yensign.circle.fill": "payments",
+  "exclamationmark.triangle.fill": "warning",
 } as IconMapping;
 
 /**

@@ -82,6 +82,7 @@ export default function RecordsScreen() {
   const [assessmentDraft, setAssessmentDraft] = useState<PhotoAssessmentDraft | undefined>();
 
   const selectedTank = farm.tanks.find((tank) => tank.id === tankId) ?? farm.tanks[0];
+  const captureQuality = farm.settings.lowBandwidthMode ? 0.45 : 0.75;
   const selectedTankId = selectedTank?.id ?? "";
 
   const growthAssessment = useMemo(() => assessGrowthTrend(farm.growthMeasurements.filter((item) => item.tankId === selectedTankId)), [farm.growthMeasurements, selectedTankId]);
@@ -129,11 +130,11 @@ export default function RecordsScreen() {
     const pickFromCamera = async () => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") { Alert.alert("Camera permission needed", "Please allow camera access to take fish photos."); return; }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.75, allowsEditing: false });
+      const result = await ImagePicker.launchCameraAsync({ quality: captureQuality, allowsEditing: false });
       if (!result.canceled) saveAsset(result.assets[0].uri);
     };
     const pickFromLibrary = async () => {
-      const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.75, allowsEditing: false, mediaTypes: ["images"] });
+      const result = await ImagePicker.launchImageLibraryAsync({ quality: captureQuality, allowsEditing: false, mediaTypes: ["images"] });
       if (!result.canceled) saveAsset(result.assets[0].uri);
     };
     if (Platform.OS === "web") { await pickFromLibrary(); return; }
@@ -144,11 +145,11 @@ export default function RecordsScreen() {
     if (source === "camera") {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") { Alert.alert("Camera permission needed", "Please allow camera access to photograph the catfish."); return; }
-      const result = await ImagePicker.launchCameraAsync({ quality: 0.75, allowsEditing: false });
+      const result = await ImagePicker.launchCameraAsync({ quality: captureQuality, allowsEditing: false });
       if (!result.canceled) { setGrowthPhotoUri(result.assets[0].uri); setAssessmentDraft(undefined); }
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.75, allowsEditing: false, mediaTypes: ["images"] });
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: captureQuality, allowsEditing: false, mediaTypes: ["images"] });
     if (!result.canceled) { setGrowthPhotoUri(result.assets[0].uri); setAssessmentDraft(undefined); }
   };
 

@@ -12,12 +12,13 @@ export function AutoSyncCoordinator() {
   const runningRef = useRef(false);
   const lastAttemptRef = useRef(0);
   const reachable = network.isInternetReachable === true;
+  const shouldUpload = farm.pendingSyncCount > 0 || farm.shouldCreateWeeklyReport();
 
   useEffect(() => {
     if (!farm.hydrated) return;
     if (!farm.settings.autoSyncEnabled) return;
     if (!reachable) return;
-    if (farm.pendingSyncCount <= 0) return;
+    if (!shouldUpload) return;
     if (!getGoogleOAuthClientId()) return;
     if (runningRef.current) return;
     if (Date.now() - lastAttemptRef.current < AUTO_SYNC_COOLDOWN_MS) return;
@@ -39,20 +40,23 @@ export function AutoSyncCoordinator() {
         });
         const result = await uploadFarmExportToGoogleDrive(farm.generateDrivePayload());
         if (cancelled) return;
-        farm.markSynced();
+        farm.resolveSyncFailures();
+        farm.markSynced(result.weeklyReportGeneratedAt);
         farm.setSyncStatus({
           status: "synced",
           lastSyncAt: new Date().toISOString(),
           lastAttemptAt: attemptAt,
-          message: `Auto-upload complete: ${result.uploadedFileCount} JSON files and ${result.uploadedPhotoCount} photos were uploaded.`,
+          message: `Auto-upload complete: ${result.uploadedFileCount} JSON files, ${result.uploadedPhotoCount} photos, and ${result.uploadedWeeklyReportCount} weekly PDF reports were uploaded.`,
         });
       } catch (error) {
         if (cancelled) return;
+        const reason = error instanceof Error ? error.message : "Auto-upload failed. Records remain safely stored on this phone.";
+        farm.recordSyncFailure({ attemptAt, itemType: "google_drive", stage: "automatic_upload", reason });
         farm.setSyncStatus({
           ...farm.sync,
           status: "failed",
           lastAttemptAt: attemptAt,
-          message: error instanceof Error ? `Auto-upload failed: ${error.message}` : "Auto-upload failed. Records remain safely stored on this phone.",
+          message: `Auto-upload failed: ${reason}`,
         });
       } finally {
         runningRef.current = false;
@@ -63,7 +67,7 @@ export function AutoSyncCoordinator() {
     return () => {
       cancelled = true;
     };
-  }, [farm, reachable]);
+  }, [farm, reachable, shouldUpload]);
 
   return null;
 }

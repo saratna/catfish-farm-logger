@@ -1,10 +1,12 @@
 import * as Crypto from "expo-crypto";
 import * as FileSystem from "expo-file-system/legacy";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as Print from "expo-print";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
-import type { DriveExport, FishPhoto } from "@/lib/farm-store";
+import type { DriveExport, FishPhoto, WeeklyReportExport } from "@/lib/farm-store";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,6 +29,8 @@ export type GoogleDriveSyncResult = {
   rootFolderId: string;
   uploadedFileCount: number;
   uploadedPhotoCount: number;
+  uploadedWeeklyReportCount: number;
+  weeklyReportGeneratedAt?: string;
 };
 
 function getPlatformGoogleOAuthClientId() {
@@ -259,6 +263,45 @@ async function uploadLocalFile(accessToken: string, parentId: string, name: stri
   return json as { id: string; name: string };
 }
 
+async function preparePhotoForUpload(photo: FishPhoto, exportPayload: DriveExport) {
+  if (photo.compressedUploadUri) return photo.compressedUploadUri;
+  const settings = exportPayload.settings;
+  if (!settings.photoCompressionEnabled && !settings.lowBandwidthMode) return photo.uri;
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      photo.uri,
+      [{ resize: { width: settings.photoMaxUploadWidth } }],
+      { compress: settings.photoCompressionQuality, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    return result.uri;
+  } catch {
+    return photo.uri;
+  }
+}
+
+function peso(value: number) {
+  return `PHP ${Math.round(value).toLocaleString()}`;
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
+}
+
+function weeklyReportHtml(report: WeeklyReportExport) {
+  const rows = report.tankSummaries.map((tank) => `<tr><td>${escapeHtml(tank.tankName)}</td><td>${tank.inspections}</td><td>${tank.feedKg.toFixed(1)} kg</td><td>${tank.growthRecords}</td><td>${peso(tank.cost)}</td><td>${peso(tank.sales)}</td><td>${peso(tank.grossProfit)}</td></tr>`).join("");
+  const alerts = report.alerts.length ? report.alerts.map((alert) => `<li><strong>${escapeHtml(alert.severity.toUpperCase())}: ${escapeHtml(alert.title)}</strong><br/>${escapeHtml(alert.action)}</li>`).join("") : "<li>No active alerts at report generation time.</li>";
+  return `<!doctype html><html><head><meta charset="utf-8"/><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;padding:28px;}h1{color:#075985;}table{width:100%;border-collapse:collapse;margin-top:12px;}th,td{border:1px solid #cbd5e1;padding:8px;font-size:12px;text-align:left;}th{background:#e0f2fe}.cards{display:flex;flex-wrap:wrap;gap:10px}.card{border:1px solid #cbd5e1;border-radius:12px;padding:10px;min-width:145px}.muted{color:#64748b;font-size:12px}</style></head><body><h1>${escapeHtml(report.title)}</h1><p class="muted">${new Date(report.weekStart).toDateString()} to ${new Date(report.weekEnd).toDateString()} · generated ${new Date(report.generatedAt).toLocaleString()}</p><div class="cards"><div class="card"><b>Inspections</b><br/>${report.summary.inspectionCount}</div><div class="card"><b>Feedings</b><br/>${report.summary.feedingCount}</div><div class="card"><b>Photos</b><br/>${report.summary.photoCount}</div><div class="card"><b>Gross profit</b><br/>${peso(report.summary.grossProfit)}</div><div class="card"><b>Active alerts</b><br/>${report.summary.activeAlertCount}</div></div><h2>Tank summary</h2><table><thead><tr><th>Tank</th><th>Inspections</th><th>Feed</th><th>Growth</th><th>Cost</th><th>Sales</th><th>Profit</th></tr></thead><tbody>${rows}</tbody></table><h2>Current alert actions</h2><ul>${alerts}</ul><p class="muted">This report was generated from records stored locally on the phone. It uploads automatically when Google Drive sync succeeds.</p></body></html>`;
+}
+
+async function createWeeklyReportPdf(directory: string, report: WeeklyReportExport) {
+  const html = weeklyReportHtml(report);
+  const pdf = await Print.printToFileAsync({ html, base64: false });
+  const fileName = `weekly-report-${report.weekStart.slice(0, 10)}.pdf`;
+  const targetUri = `${directory}${fileName}`;
+  await FileSystem.copyAsync({ from: pdf.uri, to: targetUri });
+  return { uri: targetUri, fileName };
+}
+
 async function writeJsonExportFile(directory: string, fileName: string, value: unknown) {
   const uri = `${directory}${fileName}`;
   await FileSystem.writeAsStringAsync(uri, JSON.stringify(value, null, 2), { encoding: FileSystem.EncodingType.UTF8 });
@@ -293,6 +336,16 @@ export async function uploadFarmExportToGoogleDrive(exportPayload: DriveExport) 
 
   let uploadedFileCount = 1;
   let uploadedPhotoCount = 0;
+  let uploadedWeeklyReportCount = 0;
+  let weeklyReportGeneratedAt: string | undefined;
+
+  if (exportPayload.weeklyReport) {
+    const reportFolderId = await ensureFolder("weekly-reports", rootFolderId, accessToken);
+    const report = await createWeeklyReportPdf(tempDirectory, exportPayload.weeklyReport);
+    await uploadLocalFile(accessToken, reportFolderId, report.fileName, report.uri, "application/pdf");
+    uploadedWeeklyReportCount += 1;
+    weeklyReportGeneratedAt = exportPayload.weeklyReport.generatedAt;
+  }
 
   for (const tankExport of exportPayload.tanks) {
     const tankFolderName = tankExport.folder.split("/").pop() ?? tankExport.tank.name;
@@ -323,10 +376,11 @@ export async function uploadFarmExportToGoogleDrive(exportPayload: DriveExport) 
 
     for (let index = 0; index < tankExport.photos.length; index += 1) {
       const photo = tankExport.photos[index];
-      await uploadLocalFile(accessToken, photoFolderId, getPhotoFileName(photo, index), photo.uri, getPhotoMimeType(photo));
+      const uploadUri = await preparePhotoForUpload(photo, exportPayload);
+      await uploadLocalFile(accessToken, photoFolderId, getPhotoFileName(photo, index), uploadUri, getPhotoMimeType(photo));
       uploadedPhotoCount += 1;
     }
   }
 
-  return { rootFolderId, uploadedFileCount, uploadedPhotoCount } satisfies GoogleDriveSyncResult;
+  return { rootFolderId, uploadedFileCount, uploadedPhotoCount, uploadedWeeklyReportCount, weeklyReportGeneratedAt } satisfies GoogleDriveSyncResult;
 }

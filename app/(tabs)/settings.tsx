@@ -23,6 +23,11 @@ export default function SettingsScreen() {
   const [driveRootFolder, setDriveRootFolder] = useState(farm.settings.driveRootFolder);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(farm.settings.autoSyncEnabled);
   const [staleSyncWarningDays, setStaleSyncWarningDays] = useState(String(farm.settings.staleSyncWarningDays));
+  const [lowBandwidthMode, setLowBandwidthMode] = useState(farm.settings.lowBandwidthMode);
+  const [photoCompressionEnabled, setPhotoCompressionEnabled] = useState(farm.settings.photoCompressionEnabled);
+  const [photoCompressionQuality, setPhotoCompressionQuality] = useState(String(farm.settings.photoCompressionQuality));
+  const [photoMaxUploadWidth, setPhotoMaxUploadWidth] = useState(String(farm.settings.photoMaxUploadWidth));
+  const [weeklyPdfReportsEnabled, setWeeklyPdfReportsEnabled] = useState(farm.settings.weeklyPdfReportsEnabled);
 
   const saveSettings = () => {
     const parsedHour = Number(hour);
@@ -32,11 +37,21 @@ export default function SettingsScreen() {
       return;
     }
     const parsedFeedTypes = feedTypes.split(",").map((item) => item.trim()).filter(Boolean);
+    const parsedStaleDays = Math.max(1, Number(staleSyncWarningDays) || farm.settings.staleSyncWarningDays);
+    const parsedQuality = Math.min(0.9, Math.max(0.2, Number(photoCompressionQuality) || farm.settings.photoCompressionQuality));
+    const parsedWidth = Math.min(2048, Math.max(640, Number(photoMaxUploadWidth) || farm.settings.photoMaxUploadWidth));
     farm.updateSettings({
       reminderHour: parsedHour,
       reminderMinute: parsedMinute,
       feedTypes: parsedFeedTypes.length ? parsedFeedTypes : farm.settings.feedTypes,
       driveRootFolder: driveRootFolder.trim() || "CatfishFarmLogger",
+      autoSyncEnabled,
+      staleSyncWarningDays: parsedStaleDays,
+      lowBandwidthMode,
+      photoCompressionEnabled,
+      photoCompressionQuality: parsedQuality,
+      photoMaxUploadWidth: parsedWidth,
+      weeklyPdfReportsEnabled,
     });
     Alert.alert("Settings saved", "Local settings were saved on this device.");
   };
@@ -102,10 +117,44 @@ export default function SettingsScreen() {
           <TextInput className="mt-4 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" value={driveRootFolder} onChangeText={setDriveRootFolder} />
         </View>
 
+
+        <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+          <Text className="text-xl font-bold text-foreground">Offline sync automation</Text>
+          <Text className="mt-1 text-sm leading-5 text-muted">Recommended for Philippine farms with unstable mobile data. Records remain on this phone first, then upload when the connection is usable.</Text>
+          <ToggleRow label="Auto-upload when internet returns" value={autoSyncEnabled} onPress={() => setAutoSyncEnabled((value) => !value)} />
+          <View className="mt-3">
+            <Text className="text-sm font-semibold text-foreground">Show stale-sync warning after days</Text>
+            <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" value={staleSyncWarningDays} onChangeText={setStaleSyncWarningDays} />
+          </View>
+          <ToggleRow label="Low-bandwidth mode for slow mobile networks" value={lowBandwidthMode} onPress={() => setLowBandwidthMode((value) => !value)} />
+          <ToggleRow label="Compress photos before Google Drive upload" value={photoCompressionEnabled} onPress={() => setPhotoCompressionEnabled((value) => !value)} />
+          <View className="mt-3 flex-row gap-3">
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground">Photo quality</Text>
+              <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="decimal-pad" value={photoCompressionQuality} onChangeText={setPhotoCompressionQuality} placeholder="0.55" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground">Max width</Text>
+              <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" value={photoMaxUploadWidth} onChangeText={setPhotoMaxUploadWidth} placeholder="1280" />
+            </View>
+          </View>
+          <ToggleRow label="Create weekly English PDF reports automatically" value={weeklyPdfReportsEnabled} onPress={() => setWeeklyPdfReportsEnabled((value) => !value)} />
+        </View>
+
         <TouchableOpacity className="mt-5 rounded-2xl bg-primary py-4 active:opacity-80" onPress={saveSettings}>
           <Text className="text-center font-bold text-white">Save settings</Text>
         </TouchableOpacity>
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+
+function ToggleRow({ label, value, onPress }: { label: string; value: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity className="mt-4 flex-row items-center justify-between rounded-2xl border border-border bg-background px-4 py-3 active:opacity-80" onPress={onPress}>
+      <Text className="flex-1 pr-3 font-semibold text-foreground">{label}</Text>
+      <Text className={`rounded-full px-3 py-1 text-xs font-bold ${value ? "bg-success text-white" : "bg-border text-muted"}`}>{value ? "ON" : "OFF"}</Text>
+    </TouchableOpacity>
   );
 }

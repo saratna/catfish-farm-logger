@@ -81,9 +81,9 @@ export const appRouter = router({
         confidence: data.confidence ?? "low",
         visibleSigns: Array.isArray(data.visibleSigns) ? data.visibleSigns.map(String).slice(0, 8) : [],
         severity: data.severity ?? "watch",
-        summary: data.summary ?? "写真からの確認結果を取得しました。",
-        recommendation: data.recommendation ?? "水質、食いつき、遊泳状態を合わせて確認してください。",
-        disclaimer: "写真チェックは確定診断ではありません。病気名を断定せず、観察・水質測定・必要時の専門家相談の補助として使ってください。",
+        summary: data.summary ?? "The photo review result was retrieved.",
+        recommendation: data.recommendation ?? "Check water quality, feeding response, and swimming behavior together.",
+        disclaimer: "Photo checks are not a definitive diagnosis. Use them as support for observation, water testing, and professional consultation when needed without claiming a disease name as certain.",
         storedUrl: stored.url,
       };
     }),

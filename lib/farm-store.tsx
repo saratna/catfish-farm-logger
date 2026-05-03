@@ -50,6 +50,9 @@ export type FishPhoto = {
   tankId: string;
   createdAt: string;
   uri: string;
+  originalUri?: string;
+  compressedUploadUri?: string;
+  uploadSizeBytes?: number;
   notes: string;
   synced: boolean;
 };
@@ -170,6 +173,11 @@ export type FarmSettings = {
   alertRainMm24h: number;
   autoSyncEnabled: boolean;
   staleSyncWarningDays: number;
+  lowBandwidthMode: boolean;
+  photoCompressionEnabled: boolean;
+  photoCompressionQuality: number;
+  photoMaxUploadWidth: number;
+  weeklyPdfReportsEnabled: boolean;
 };
 
 export type SyncLog = {
@@ -178,6 +186,48 @@ export type SyncLog = {
   lastAttemptAt?: string;
   status: "idle" | "waiting" | "syncing" | "synced" | "failed";
   message: string;
+  lastWeeklyReportAt?: string;
+};
+
+export type SyncFailure = {
+  id: string;
+  createdAt: string;
+  attemptAt: string;
+  itemType: "farm_export" | "photo_upload" | "weekly_pdf" | "google_drive" | "network";
+  itemId?: string;
+  stage: string;
+  reason: string;
+  retryStatus: "pending" | "resolved";
+  resolvedAt?: string;
+  guidance: string;
+};
+
+export type WeeklyReportExport = {
+  weekStart: string;
+  weekEnd: string;
+  generatedAt: string;
+  title: string;
+  summary: {
+    inspectionCount: number;
+    feedingCount: number;
+    photoCount: number;
+    costTotal: number;
+    salesTotal: number;
+    grossProfit: number;
+    activeAlertCount: number;
+  };
+  tankSummaries: Array<{
+    tankId: string;
+    tankName: string;
+    inspections: number;
+    feedKg: number;
+    photos: number;
+    growthRecords: number;
+    cost: number;
+    sales: number;
+    grossProfit: number;
+  }>;
+  alerts: Array<{ severity: string; title: string; action: string }>;
 };
 
 type FarmState = {
@@ -195,6 +245,7 @@ type FarmState = {
   feedProducts: FeedProduct[];
   settings: FarmSettings;
   sync: SyncLog;
+  syncFailures: SyncFailure[];
   hydrated: boolean;
 };
 
@@ -214,8 +265,10 @@ type FarmAction =
   | { type: "acknowledgeRiskAlert"; payload: { id: string } }
   | { type: "addFeedProduct"; payload: FeedProduct }
   | { type: "updateSettings"; payload: Partial<FarmSettings> }
-  | { type: "markSynced"; payload: { at: string } }
-  | { type: "setSyncStatus"; payload: SyncLog };
+  | { type: "markSynced"; payload: { at: string; weeklyReportAt?: string } }
+  | { type: "setSyncStatus"; payload: SyncLog }
+  | { type: "addSyncFailure"; payload: SyncFailure }
+  | { type: "resolveSyncFailures"; payload: { at: string } };
 
 const STORAGE_KEY = "catfish-farm-logger-state-v2";
 
@@ -263,11 +316,17 @@ const defaultState: FarmState = {
     alertRainMm24h: 50,
     autoSyncEnabled: true,
     staleSyncWarningDays: 7,
+    lowBandwidthMode: true,
+    photoCompressionEnabled: true,
+    photoCompressionQuality: 0.55,
+    photoMaxUploadWidth: 1280,
+    weeklyPdfReportsEnabled: true,
   },
   sync: {
     status: "waiting",
     message: "Local records are saved on this device until Google Drive sync is connected.",
   },
+  syncFailures: [],
   hydrated: false,
 };
 
@@ -316,10 +375,15 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
         weatherRecords: state.weatherRecords.map((item) => ({ ...item, synced: true })),
         riskAlerts: state.riskAlerts.map((item) => ({ ...item, synced: true })),
         feedProducts: state.feedProducts.map((item) => ({ ...item, synced: true })),
-        sync: { status: "synced", lastSyncAt: action.payload.at, lastAttemptAt: action.payload.at, message: "All local records have been uploaded." },
+        sync: { status: "synced", lastSyncAt: action.payload.at, lastAttemptAt: action.payload.at, lastWeeklyReportAt: action.payload.weeklyReportAt ?? state.sync.lastWeeklyReportAt, message: "All local records have been uploaded." },
+        syncFailures: state.syncFailures.map((item) => item.retryStatus === "pending" ? { ...item, retryStatus: "resolved", resolvedAt: action.payload.at } : item),
       };
     case "setSyncStatus":
       return { ...state, sync: action.payload };
+    case "addSyncFailure":
+      return { ...state, syncFailures: [action.payload, ...state.syncFailures].slice(0, 100) };
+    case "resolveSyncFailures":
+      return { ...state, syncFailures: state.syncFailures.map((item) => item.retryStatus === "pending" ? { ...item, retryStatus: "resolved", resolvedAt: action.payload.at } : item) };
     default:
       return state;
   }
@@ -360,14 +424,19 @@ type FarmContextValue = FarmState & {
   acknowledgeRiskAlert: (id: string) => void;
   addFeedProduct: (input: Omit<FeedProduct, "id" | "createdAt" | "synced">) => void;
   updateSettings: (input: Partial<FarmSettings>) => void;
-  markSynced: () => void;
+  markSynced: (weeklyReportAt?: string) => void;
   setSyncStatus: (input: SyncLog) => void;
+  recordSyncFailure: (input: Omit<SyncFailure, "id" | "createdAt" | "retryStatus" | "guidance"> & { guidance?: string }) => void;
+  resolveSyncFailures: () => void;
+  shouldCreateWeeklyReport: () => boolean;
+  generateWeeklyReport: () => WeeklyReportExport;
   generateDrivePayload: () => DriveExport;
 };
 
 export type DriveExport = {
   rootFolder: string;
   generatedAt: string;
+  settings: FarmSettings;
   location?: FarmLocation;
   weatherRecords: WeatherRecord[];
   riskAlerts: RiskAlert[];
@@ -376,6 +445,7 @@ export type DriveExport = {
   saleRecords: FarmSaleRecord[];
   monthlyTrend: ReturnType<typeof buildMonthlyTrend>;
   profitabilityRanking: ReturnType<typeof rankTanksByProfitability>;
+  weeklyReport?: WeeklyReportExport;
   tanks: Array<{
     folder: string;
     tank: Tank;
@@ -408,7 +478,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         const parsed = JSON.parse(value) as Partial<Omit<FarmState, "hydrated">>;
-        dispatch({ type: "hydrate", payload: { ...serializableState(defaultState), ...parsed, settings: { ...defaultState.settings, ...parsed.settings } } });
+        dispatch({ type: "hydrate", payload: { ...serializableState(defaultState), ...parsed, settings: { ...defaultState.settings, ...parsed.settings }, sync: { ...defaultState.sync, ...parsed.sync }, syncFailures: parsed.syncFailures ?? [] } });
       })
       .catch(() => dispatch({ type: "hydrate", payload: serializableState(defaultState) }));
     return () => {
@@ -509,18 +579,46 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "updateSettings", payload: input });
   }, []);
 
-  const markSynced = useCallback(() => {
-    dispatch({ type: "markSynced", payload: { at: nowIso() } });
+  const markSynced = useCallback((weeklyReportAt?: string) => {
+    dispatch({ type: "markSynced", payload: { at: nowIso(), weeklyReportAt } });
   }, []);
 
   const setSyncStatus = useCallback((input: SyncLog) => {
     dispatch({ type: "setSyncStatus", payload: input });
   }, []);
 
+  const recordSyncFailure = useCallback((input: Omit<SyncFailure, "id" | "createdAt" | "retryStatus" | "guidance"> & { guidance?: string }) => {
+    dispatch({
+      type: "addSyncFailure",
+      payload: {
+        id: createId("sync_failure"),
+        createdAt: nowIso(),
+        retryStatus: "pending",
+        guidance: input.guidance ?? "Keep recording locally. The app will retry automatically when mobile data or Wi-Fi becomes stable, or you can open Sync and run an upload manually.",
+        ...input,
+      },
+    });
+  }, []);
+
+  const resolveSyncFailures = useCallback(() => {
+    dispatch({ type: "resolveSyncFailures", payload: { at: nowIso() } });
+  }, []);
+
+  const shouldCreateWeeklyReport = useCallback(() => {
+    if (!state.settings.weeklyPdfReportsEnabled) return false;
+    if (!state.sync.lastWeeklyReportAt) return true;
+    return daysSinceSync(state.sync.lastWeeklyReportAt) !== null && (daysSinceSync(state.sync.lastWeeklyReportAt) ?? 0) >= 7;
+  }, [state.settings.weeklyPdfReportsEnabled, state.sync.lastWeeklyReportAt]);
+
+  const generateWeeklyReport = useCallback((): WeeklyReportExport => {
+    return buildWeeklyReport(state);
+  }, [state]);
+
   const generateDrivePayload = useCallback((): DriveExport => {
     return {
       rootFolder: state.settings.driveRootFolder,
       generatedAt: nowIso(),
+      settings: state.settings,
       location: state.location,
       weatherRecords: state.weatherRecords,
       riskAlerts: state.riskAlerts,
@@ -529,6 +627,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       saleRecords: state.saleRecords,
       monthlyTrend: buildMonthlyTrend(state.costEntries, state.saleRecords, state.feedings, state.growthMeasurements),
       profitabilityRanking: rankTanksByProfitability(state.tanks, state.costEntries, state.saleRecords, state.feedings, state.growthMeasurements),
+      weeklyReport: state.settings.weeklyPdfReportsEnabled ? buildWeeklyReport(state) : undefined,
       tanks: state.tanks.map((tank) => {
         const safeName = tank.name.replace(/[^a-zA-Z0-9_-]+/g, "_");
         const tankFeedings = state.feedings.filter((item) => item.tankId === tank.id);
@@ -580,9 +679,13 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       markSynced,
       setSyncStatus,
+      recordSyncFailure,
+      resolveSyncFailures,
+      shouldCreateWeeklyReport,
+      generateWeeklyReport,
       generateDrivePayload,
     }),
-    [state, pendingSyncCount, syncAgeDays, hasStaleSyncWarning, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, addGrowthMeasurement, addPhotoAssessment, addCostEntry, addSaleRecord, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, setSyncStatus, generateDrivePayload],
+    [state, pendingSyncCount, syncAgeDays, hasStaleSyncWarning, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, addGrowthMeasurement, addPhotoAssessment, addCostEntry, addSaleRecord, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, setSyncStatus, recordSyncFailure, resolveSyncFailures, shouldCreateWeeklyReport, generateWeeklyReport, generateDrivePayload],
   );
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>;
@@ -594,6 +697,67 @@ export function useFarm() {
     throw new Error("useFarm must be used inside FarmProvider");
   }
   return context;
+}
+
+function getWeekBounds(reference = new Date()) {
+  const end = new Date(reference);
+  const start = new Date(reference);
+  start.setDate(end.getDate() - 6);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function isWithinRange(value: string, start: Date, end: Date) {
+  const time = Date.parse(value);
+  return Number.isFinite(time) && time >= start.getTime() && time <= end.getTime();
+}
+
+function buildWeeklyReport(state: FarmState): WeeklyReportExport {
+  const { start, end } = getWeekBounds();
+  const inspections = state.inspections.filter((item) => isWithinRange(item.createdAt, start, end));
+  const feedings = state.feedings.filter((item) => isWithinRange(item.createdAt, start, end));
+  const photos = state.photos.filter((item) => isWithinRange(item.createdAt, start, end));
+  const costs = state.costEntries.filter((item) => isWithinRange(item.createdAt, start, end));
+  const sales = state.saleRecords.filter((item) => isWithinRange(item.createdAt, start, end));
+  const activeAlerts = state.riskAlerts.filter((item) => !item.acknowledged);
+  const costTotal = costs.reduce((sum, item) => sum + item.amount, 0);
+  const salesTotal = sales.reduce((sum, item) => sum + item.totalAmount, 0);
+  return {
+    weekStart: start.toISOString(),
+    weekEnd: end.toISOString(),
+    generatedAt: nowIso(),
+    title: "Weekly Catfish Farm Report",
+    summary: {
+      inspectionCount: inspections.length,
+      feedingCount: feedings.length,
+      photoCount: photos.length,
+      costTotal,
+      salesTotal,
+      grossProfit: salesTotal - costTotal,
+      activeAlertCount: activeAlerts.length,
+    },
+    tankSummaries: state.tanks.map((tank) => {
+      const tankFeedings = feedings.filter((item) => item.tankId === tank.id);
+      const tankPhotos = photos.filter((item) => item.tankId === tank.id);
+      const tankCosts = costs.filter((item) => item.tankId === tank.id);
+      const tankSales = sales.filter((item) => item.tankId === tank.id);
+      const cost = tankCosts.reduce((sum, item) => sum + item.amount, 0);
+      const revenue = tankSales.reduce((sum, item) => sum + item.totalAmount, 0);
+      return {
+        tankId: tank.id,
+        tankName: tank.name,
+        inspections: inspections.filter((item) => item.tankId === tank.id).length,
+        feedKg: tankFeedings.reduce((sum, item) => sum + item.feedAmountKg, 0),
+        photos: tankPhotos.length,
+        growthRecords: state.growthMeasurements.filter((item) => item.tankId === tank.id && isWithinRange(item.createdAt, start, end)).length,
+        cost,
+        sales: revenue,
+        grossProfit: revenue - cost,
+      };
+    }),
+    alerts: activeAlerts.slice(0, 12).map((item) => ({ severity: item.severity, title: item.title, action: item.action })),
+  };
 }
 
 export function formatShortDate(value?: string) {

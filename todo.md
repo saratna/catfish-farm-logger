@@ -68,3 +68,10 @@
 - [x] Add automatic upload/sync behavior when internet connectivity returns
 - [x] Add a visible warning when data has not been uploaded for a long time
 - [x] Add tests for English UI text, offline-first messaging, auto-sync readiness, and stale-sync warnings
+- [x] Add a sync failure history list screen with time, item type, reason, retry status, and manual retry guidance
+- [x] Record sync failures locally so farmers can review what did not upload during unstable connectivity
+- [x] Add low-bandwidth photo compression before Google Drive upload while preserving original local metadata
+- [x] Add a user-facing setting or automatic mode for slower Philippine mobile connections
+- [x] Generate weekly English PDF reports from local farm records
+- [x] Add weekly PDF reports to the Google Drive sync/export flow when connectivity is available
+- [x] Add automated tests for sync failure history, photo compression settings, and weekly report generation

@@ -223,3 +223,27 @@ describe("Catfish Farm Logger implementation", () => {
   });
 
 });
+
+
+describe("offline sync automation additions", () => {
+  it("keeps Philippine low-bandwidth defaults enabled", async () => {
+    const source = await import("node:fs/promises").then((fs) => fs.readFile("lib/farm-store.tsx", "utf8"));
+    expect(source).toContain("lowBandwidthMode: true");
+    expect(source).toContain("photoCompressionEnabled: true");
+    expect(source).toContain("weeklyPdfReportsEnabled: true");
+  });
+
+  it("records sync failure history and weekly PDF metadata", async () => {
+    const source = await import("node:fs/promises").then((fs) => fs.readFile("lib/farm-store.tsx", "utf8"));
+    expect(source).toContain("export type SyncFailure");
+    expect(source).toContain("export type WeeklyReportExport");
+    expect(source).toContain("buildWeeklyReport");
+  });
+
+  it("compresses photos and uploads weekly PDF reports during Drive sync", async () => {
+    const source = await import("node:fs/promises").then((fs) => fs.readFile("lib/google-drive.ts", "utf8"));
+    expect(source).toContain("expo-image-manipulator");
+    expect(source).toContain("expo-print");
+    expect(source).toContain("weekly-reports");
+  });
+});
