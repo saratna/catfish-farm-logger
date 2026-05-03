@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FlatList, Modal, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { summarizeSeverity } from "@/lib/catfish-advisor";
 import { formatShortDate, useFarm, type Tank } from "@/lib/farm-store";
 
 function TankCard({ tank, missing }: { tank: Tank; missing: boolean }) {
@@ -51,6 +52,8 @@ export default function HomeScreen() {
   };
 
   const missingCount = farm.todaysMissingTankIds.length;
+  const weatherSummary = summarizeSeverity(farm.activeRiskAlerts);
+  const latestWeather = farm.latestWeather;
 
   return (
     <ScreenContainer className="px-5 pt-4" edges={["top", "left", "right"]}>
@@ -70,6 +73,28 @@ export default function HomeScreen() {
               <Text className="mt-2 text-sm leading-5 text-white/90">
                 {missingCount === 0 ? "All tanks have today’s inspection record." : `${missingCount} tank(s) still need water temperature and test values today.`}
               </Text>
+            </View>
+            <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="text-xs font-bold uppercase text-muted">Weather risk</Text>
+                  <Text className="mt-1 text-xl font-extrabold text-foreground">{weatherSummary.title}</Text>
+                  <Text className="mt-2 text-sm leading-5 text-muted">{weatherSummary.summary}</Text>
+                </View>
+                <View className={`rounded-full px-3 py-1 ${weatherSummary.severity === "danger" ? "bg-error" : weatherSummary.severity === "watch" ? "bg-warning" : "bg-success"}`}>
+                  <Text className="text-xs font-bold text-white">{weatherSummary.severity}</Text>
+                </View>
+              </View>
+              <View className="mt-4 flex-row gap-3">
+                <View className="flex-1 rounded-2xl bg-background p-3">
+                  <Text className="text-xs text-muted">Air</Text>
+                  <Text className="mt-1 text-lg font-bold text-foreground">{typeof latestWeather?.airTempC === "number" ? `${latestWeather.airTempC}°C` : "--"}</Text>
+                </View>
+                <View className="flex-1 rounded-2xl bg-background p-3">
+                  <Text className="text-xs text-muted">Rain 24h</Text>
+                  <Text className="mt-1 text-lg font-bold text-foreground">{typeof latestWeather?.rainMm24h === "number" ? `${latestWeather.rainMm24h}mm` : "--"}</Text>
+                </View>
+              </View>
             </View>
             <View className="mt-4 flex-row gap-3">
               <View className="flex-1 rounded-3xl border border-border bg-surface p-4">

@@ -3,6 +3,7 @@ import { Alert, FlatList, Image, Platform, Text, TextInput, TouchableOpacity, Vi
 import * as ImagePicker from "expo-image-picker";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { buildFeedingAdvice } from "@/lib/catfish-advisor";
 import { formatShortDate, useFarm } from "@/lib/farm-store";
 
 const toNumber = (value: string) => Number(value.replace(",", "."));
@@ -19,6 +20,12 @@ export default function RecordsScreen() {
   const [feedType, setFeedType] = useState(farm.settings.feedTypes[0] ?? "Floating pellet");
   const [feedAmountKg, setFeedAmountKg] = useState("");
   const [averageWeightG, setAverageWeightG] = useState("");
+  const [fishCount, setFishCount] = useState("");
+  const [feedProductName, setFeedProductName] = useState(farm.feedProducts[0]?.name ?? "");
+  const [proteinPercent, setProteinPercent] = useState(farm.feedProducts[0]?.proteinPercent?.toString() ?? "");
+  const [pelletSizeMm, setPelletSizeMm] = useState(farm.feedProducts[0]?.pelletSizeMm?.toString() ?? "");
+  const [feedBehavior, setFeedBehavior] = useState<"poor" | "normal" | "strong">("normal");
+  const [residualFeed, setResidualFeed] = useState<"none" | "little" | "much">("none");
   const [feedingNotes, setFeedingNotes] = useState("");
   const [photoNotes, setPhotoNotes] = useState("");
 
@@ -28,7 +35,7 @@ export default function RecordsScreen() {
   const timeline = useMemo(() => {
     return [
       ...farm.inspections.filter((item) => item.tankId === selectedTankId).map((item) => ({ kind: "Inspection" as const, id: item.id, at: item.createdAt, text: `${item.waterTempC}°C water, pH ${item.ph ?? "--"}`, synced: item.synced })),
-      ...farm.feedings.filter((item) => item.tankId === selectedTankId).map((item) => ({ kind: "Feeding" as const, id: item.id, at: item.createdAt, text: `${item.feedAmountKg} kg ${item.feedType}, ${item.averageWeightG} g avg`, synced: item.synced })),
+      ...farm.feedings.filter((item) => item.tankId === selectedTankId).map((item) => ({ kind: "Feeding" as const, id: item.id, at: item.createdAt, text: `${item.feedAmountKg} kg ${item.feedProductName || item.feedType}, ${item.averageWeightG} g avg${item.recommendedFeedKg ? ` · rec ${item.recommendedFeedKg} kg` : ""}`, synced: item.synced })),
       ...farm.photos.filter((item) => item.tankId === selectedTankId).map((item) => ({ kind: "Photo" as const, id: item.id, at: item.createdAt, text: item.notes || "Fish photo saved", synced: item.synced, uri: item.uri })),
     ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   }, [farm.feedings, farm.inspections, farm.photos, selectedTankId]);
@@ -63,9 +70,44 @@ export default function RecordsScreen() {
       Alert.alert("Feeding details required", "Please enter feed amount and average fish weight.");
       return;
     }
-    farm.addFeeding({ tankId: selectedTankId, feedType, feedAmountKg: amount, averageWeightG: weight, notes: feedingNotes.trim() });
+    const count = fishCount ? toNumber(fishCount) : undefined;
+    const productProtein = proteinPercent ? toNumber(proteinPercent) : undefined;
+    const pelletSize = pelletSizeMm ? toNumber(pelletSizeMm) : undefined;
+    const latestInspection = farm.inspections.find((item) => item.tankId === selectedTankId);
+    const advice = buildFeedingAdvice({
+      averageWeightG: weight,
+      fishCount: count,
+      feedAmountKg: amount,
+      productName: feedProductName.trim(),
+      proteinPercent: productProtein,
+      pelletSizeMm: pelletSize,
+      residualFeed,
+      appetite: feedBehavior,
+      weather: farm.latestWeather,
+      inspection: latestInspection,
+    });
+    farm.addFeeding({
+      tankId: selectedTankId,
+      feedType,
+      feedAmountKg: amount,
+      averageWeightG: weight,
+      fishCount: count,
+      feedProductName: feedProductName.trim(),
+      proteinPercent: productProtein,
+      pelletSizeMm: pelletSize,
+      feedBehavior,
+      residualFeed,
+      recommendedFeedKg: advice.recommendedFeedKg,
+      adviceSummary: advice.summary,
+      productAdvice: advice.productAdvice,
+      notes: [feedingNotes.trim(), ...advice.cautions].filter(Boolean).join("\n"),
+    });
+    if (feedProductName.trim()) {
+      farm.addFeedProduct({ name: feedProductName.trim(), proteinPercent: productProtein, pelletSizeMm: pelletSize, notes: feedingNotes.trim(), floats: feedType.toLowerCase().includes("floating") });
+    }
     setFeedAmountKg("");
     setAverageWeightG("");
+    setFishCount("");
     setFeedingNotes("");
   };
 
@@ -172,6 +214,28 @@ export default function RecordsScreen() {
               <View className="mt-4 flex-row gap-3">
                 <TextInput className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="decimal-pad" placeholder="Feed kg" value={feedAmountKg} onChangeText={setFeedAmountKg} />
                 <TextInput className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="decimal-pad" placeholder="Avg weight g" value={averageWeightG} onChangeText={setAverageWeightG} />
+              </View>
+              <View className="mt-3 flex-row gap-3">
+                <TextInput className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" placeholder="Fish count" value={fishCount} onChangeText={setFishCount} />
+                <TextInput className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" placeholder="Product" value={feedProductName} onChangeText={setFeedProductName} />
+              </View>
+              <View className="mt-3 flex-row gap-3">
+                <TextInput className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="decimal-pad" placeholder="Protein %" value={proteinPercent} onChangeText={setProteinPercent} />
+                <TextInput className="flex-1 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="decimal-pad" placeholder="Pellet mm" value={pelletSizeMm} onChangeText={setPelletSizeMm} />
+              </View>
+              <View className="mt-3 flex-row gap-2">
+                {(["poor", "normal", "strong"] as const).map((item) => (
+                  <TouchableOpacity key={item} className={`flex-1 rounded-full px-3 py-2 ${feedBehavior === item ? "bg-primary" : "bg-background border border-border"}`} onPress={() => setFeedBehavior(item)}>
+                    <Text className={`text-center text-xs font-bold ${feedBehavior === item ? "text-white" : "text-foreground"}`}>{item}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View className="mt-3 flex-row gap-2">
+                {(["none", "little", "much"] as const).map((item) => (
+                  <TouchableOpacity key={item} className={`flex-1 rounded-full px-3 py-2 ${residualFeed === item ? "bg-warning" : "bg-background border border-border"}`} onPress={() => setResidualFeed(item)}>
+                    <Text className={`text-center text-xs font-bold ${residualFeed === item ? "text-white" : "text-foreground"}`}>residue {item}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
               <TextInput className="mt-3 min-h-20 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" placeholder="Feeding notes" value={feedingNotes} onChangeText={setFeedingNotes} multiline />
               <TouchableOpacity className="mt-4 rounded-2xl bg-primary py-4 active:opacity-80" onPress={saveFeeding}>

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { assessCatfishWeatherRisk, buildFeedingAdvice } from "../lib/catfish-advisor";
+
 const root = process.cwd();
 const read = (relativePath: string) => readFileSync(join(root, relativePath), "utf8");
 
@@ -46,5 +48,45 @@ describe("Catfish Farm Logger implementation", () => {
     expect(config).toContain("versionCode: 1");
     expect(packageJson.scripts["build:android"]).toContain("eas build --platform android");
     expect(packageJson.scripts["submit:android"]).toContain("eas submit --platform android");
+  });
+
+  it("includes GPS weather monitoring and catfish risk UI", () => {
+    const weather = read("app/(tabs)/weather.tsx");
+    const store = read("lib/farm-store.tsx");
+    const packageJson = JSON.parse(read("package.json"));
+    expect(packageJson.dependencies["expo-location"]).toBeTruthy();
+    expect(weather).toContain("Location.requestForegroundPermissionsAsync");
+    expect(weather).toContain("api.open-meteo.com");
+    expect(weather).toContain("scheduleNotificationAsync");
+    expect(store).toContain("weatherRecords");
+    expect(store).toContain("activeRiskAlerts");
+  });
+
+  it("flags high-risk weather and water conditions for catfish", () => {
+    const risks = assessCatfishWeatherRisk(
+      { airTempC: 35, rainMm24h: 55, humidityPercent: 92, pressureTrendHpa: -6 },
+      { waterTempC: 34.2, dissolvedOxygen: 3.5, ammonia: 0.7 },
+    );
+    expect(risks.some((risk) => risk.severity === "danger" && risk.category === "heat")).toBe(true);
+    expect(risks.some((risk) => risk.severity === "danger" && risk.category === "water")).toBe(true);
+    expect(risks.some((risk) => risk.category === "rain")).toBe(true);
+  });
+
+  it("reduces feeding recommendations when weather and appetite are unfavorable", () => {
+    const advice = buildFeedingAdvice({
+      averageWeightG: 250,
+      fishCount: 1000,
+      feedAmountKg: 7,
+      productName: "Sample Pellet",
+      proteinPercent: 24,
+      pelletSizeMm: 5,
+      residualFeed: "much",
+      appetite: "poor",
+      weather: { airTempC: 35, rainMm24h: 30 },
+      inspection: { waterTempC: 31, dissolvedOxygen: 3.8 },
+    });
+    expect(advice.recommendedFeedKg).toBeLessThan(7);
+    expect(advice.productAdvice).toContain("低め");
+    expect(advice.cautions.length).toBeGreaterThan(1);
   });
 });

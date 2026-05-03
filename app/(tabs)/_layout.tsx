@@ -44,6 +44,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="weather"
+        options={{
+          title: "Weather",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="cloud.rain.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="sync"
         options={{
           title: "Sync",

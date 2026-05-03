@@ -30,6 +30,16 @@ export type Feeding = {
   feedType: string;
   feedAmountKg: number;
   averageWeightG: number;
+  fishCount?: number;
+  feedProductName?: string;
+  proteinPercent?: number;
+  pelletSizeMm?: number;
+  feedBehavior?: "poor" | "normal" | "strong";
+  residualFeed?: "none" | "little" | "much";
+  floats?: boolean;
+  recommendedFeedKg?: number;
+  adviceSummary?: string;
+  productAdvice?: string;
   notes: string;
   synced: boolean;
 };
@@ -43,11 +53,62 @@ export type FishPhoto = {
   synced: boolean;
 };
 
+export type FarmLocation = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  label: string;
+  updatedAt: string;
+};
+
+export type WeatherRecord = {
+  id: string;
+  createdAt: string;
+  latitude: number;
+  longitude: number;
+  source: string;
+  sourceSummary: string;
+  airTempC?: number;
+  humidityPercent?: number;
+  pressureHpa?: number;
+  pressureTrendHpa?: number;
+  rainMm24h?: number;
+  windKph?: number;
+  forecastText: string;
+  synced: boolean;
+};
+
+export type RiskAlert = {
+  id: string;
+  createdAt: string;
+  severity: "normal" | "watch" | "danger";
+  category: "heat" | "rain" | "pressure" | "humidity" | "water" | "feed";
+  title: string;
+  reason: string;
+  action: string;
+  acknowledged: boolean;
+  synced: boolean;
+};
+
+export type FeedProduct = {
+  id: string;
+  createdAt: string;
+  name: string;
+  proteinPercent?: number;
+  pelletSizeMm?: number;
+  floats?: boolean;
+  notes: string;
+  synced: boolean;
+};
+
 export type FarmSettings = {
   reminderHour: number;
   reminderMinute: number;
   feedTypes: string[];
   driveRootFolder: string;
+  weatherAlertsEnabled: boolean;
+  alertTempC: number;
+  alertRainMm24h: number;
 };
 
 export type SyncLog = {
@@ -62,6 +123,10 @@ type FarmState = {
   inspections: Inspection[];
   feedings: Feeding[];
   photos: FishPhoto[];
+  location?: FarmLocation;
+  weatherRecords: WeatherRecord[];
+  riskAlerts: RiskAlert[];
+  feedProducts: FeedProduct[];
   settings: FarmSettings;
   sync: SyncLog;
   hydrated: boolean;
@@ -73,11 +138,16 @@ type FarmAction =
   | { type: "addInspection"; payload: Inspection }
   | { type: "addFeeding"; payload: Feeding }
   | { type: "addPhoto"; payload: FishPhoto }
+  | { type: "setLocation"; payload: FarmLocation }
+  | { type: "addWeatherRecord"; payload: WeatherRecord }
+  | { type: "replaceRiskAlerts"; payload: RiskAlert[] }
+  | { type: "acknowledgeRiskAlert"; payload: { id: string } }
+  | { type: "addFeedProduct"; payload: FeedProduct }
   | { type: "updateSettings"; payload: Partial<FarmSettings> }
   | { type: "markSynced"; payload: { at: string } }
   | { type: "setSyncStatus"; payload: SyncLog };
 
-const STORAGE_KEY = "catfish-farm-logger-state-v1";
+const STORAGE_KEY = "catfish-farm-logger-state-v2";
 
 const nowIso = () => new Date().toISOString();
 const createId = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -95,11 +165,28 @@ const defaultState: FarmState = {
   inspections: [],
   feedings: [],
   photos: [],
+  weatherRecords: [],
+  riskAlerts: [],
+  feedProducts: [
+    {
+      id: "feed_demo_1",
+      createdAt: nowIso(),
+      name: "Floating catfish pellet",
+      proteinPercent: 32,
+      pelletSizeMm: 3,
+      floats: true,
+      notes: "Sample feed product. Replace with the actual brand and guaranteed analysis.",
+      synced: false,
+    },
+  ],
   settings: {
     reminderHour: 8,
     reminderMinute: 0,
     feedTypes: ["Floating pellet", "Sinking pellet", "Mixed feed"],
     driveRootFolder: "CatfishFarmLogger",
+    weatherAlertsEnabled: true,
+    alertTempC: 34,
+    alertRainMm24h: 50,
   },
   sync: {
     status: "waiting",
@@ -120,6 +207,16 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
       return { ...state, feedings: [action.payload, ...state.feedings], sync: waitingSync("Feeding saved locally") };
     case "addPhoto":
       return { ...state, photos: [action.payload, ...state.photos], sync: waitingSync("Photo record saved locally") };
+    case "setLocation":
+      return { ...state, location: action.payload, sync: waitingSync("GPS location saved locally") };
+    case "addWeatherRecord":
+      return { ...state, weatherRecords: [action.payload, ...state.weatherRecords].slice(0, 120), sync: waitingSync("Weather record saved locally") };
+    case "replaceRiskAlerts":
+      return { ...state, riskAlerts: [...action.payload, ...state.riskAlerts.filter((item) => item.acknowledged)].slice(0, 120), sync: waitingSync("Risk alerts updated locally") };
+    case "acknowledgeRiskAlert":
+      return { ...state, riskAlerts: state.riskAlerts.map((item) => (item.id === action.payload.id ? { ...item, acknowledged: true, synced: false } : item)), sync: waitingSync("Risk alert acknowledged locally") };
+    case "addFeedProduct":
+      return { ...state, feedProducts: [action.payload, ...state.feedProducts], sync: waitingSync("Feed product saved locally") };
     case "updateSettings":
       return { ...state, settings: { ...state.settings, ...action.payload } };
     case "markSynced":
@@ -128,6 +225,9 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
         inspections: state.inspections.map((item) => ({ ...item, synced: true })),
         feedings: state.feedings.map((item) => ({ ...item, synced: true })),
         photos: state.photos.map((item) => ({ ...item, synced: true })),
+        weatherRecords: state.weatherRecords.map((item) => ({ ...item, synced: true })),
+        riskAlerts: state.riskAlerts.map((item) => ({ ...item, synced: true })),
+        feedProducts: state.feedProducts.map((item) => ({ ...item, synced: true })),
         sync: { status: "synced", lastSyncAt: action.payload.at, message: "All local records are marked as synced." },
       };
     case "setSyncStatus":
@@ -154,10 +254,17 @@ function serializableState(state: FarmState): Omit<FarmState, "hydrated"> {
 type FarmContextValue = FarmState & {
   pendingSyncCount: number;
   todaysMissingTankIds: string[];
+  latestWeather?: WeatherRecord;
+  activeRiskAlerts: RiskAlert[];
   addTank: (input: Pick<Tank, "name" | "location" | "notes">) => void;
   addInspection: (input: Omit<Inspection, "id" | "createdAt" | "synced">) => void;
   addFeeding: (input: Omit<Feeding, "id" | "createdAt" | "synced">) => void;
   addPhoto: (input: Omit<FishPhoto, "id" | "createdAt" | "synced">) => void;
+  setLocation: (input: Omit<FarmLocation, "updatedAt">) => void;
+  addWeatherRecord: (input: Omit<WeatherRecord, "id" | "createdAt" | "synced">) => void;
+  replaceRiskAlerts: (input: Array<Omit<RiskAlert, "id" | "createdAt" | "acknowledged" | "synced">>) => void;
+  acknowledgeRiskAlert: (id: string) => void;
+  addFeedProduct: (input: Omit<FeedProduct, "id" | "createdAt" | "synced">) => void;
   updateSettings: (input: Partial<FarmSettings>) => void;
   markSynced: () => void;
   generateDrivePayload: () => DriveExport;
@@ -166,6 +273,10 @@ type FarmContextValue = FarmState & {
 export type DriveExport = {
   rootFolder: string;
   generatedAt: string;
+  location?: FarmLocation;
+  weatherRecords: WeatherRecord[];
+  riskAlerts: RiskAlert[];
+  feedProducts: FeedProduct[];
   tanks: Array<{
     folder: string;
     tank: Tank;
@@ -190,8 +301,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
           dispatch({ type: "hydrate", payload: serializableState(defaultState) });
           return;
         }
-        const parsed = JSON.parse(value) as Omit<FarmState, "hydrated">;
-        dispatch({ type: "hydrate", payload: { ...serializableState(defaultState), ...parsed } });
+        const parsed = JSON.parse(value) as Partial<Omit<FarmState, "hydrated">>;
+        dispatch({ type: "hydrate", payload: { ...serializableState(defaultState), ...parsed, settings: { ...defaultState.settings, ...parsed.settings } } });
       })
       .catch(() => dispatch({ type: "hydrate", payload: serializableState(defaultState) }));
     return () => {
@@ -205,14 +316,23 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   const pendingSyncCount = useMemo(
-    () => state.inspections.filter((item) => !item.synced).length + state.feedings.filter((item) => !item.synced).length + state.photos.filter((item) => !item.synced).length,
-    [state.inspections, state.feedings, state.photos],
+    () =>
+      state.inspections.filter((item) => !item.synced).length +
+      state.feedings.filter((item) => !item.synced).length +
+      state.photos.filter((item) => !item.synced).length +
+      state.weatherRecords.filter((item) => !item.synced).length +
+      state.riskAlerts.filter((item) => !item.synced).length +
+      state.feedProducts.filter((item) => !item.synced).length,
+    [state.inspections, state.feedings, state.photos, state.weatherRecords, state.riskAlerts, state.feedProducts],
   );
 
   const todaysMissingTankIds = useMemo(
     () => state.tanks.filter((tank) => !state.inspections.some((item) => item.tankId === tank.id && isSameLocalDate(item.createdAt))).map((tank) => tank.id),
     [state.tanks, state.inspections],
   );
+
+  const latestWeather = state.weatherRecords[0];
+  const activeRiskAlerts = useMemo(() => state.riskAlerts.filter((item) => !item.acknowledged), [state.riskAlerts]);
 
   const addTank = useCallback((input: Pick<Tank, "name" | "location" | "notes">) => {
     dispatch({ type: "addTank", payload: { id: createId("tank"), createdAt: nowIso(), ...input } });
@@ -230,6 +350,29 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "addPhoto", payload: { id: createId("photo"), createdAt: nowIso(), synced: false, ...input } });
   }, []);
 
+  const setLocation = useCallback((input: Omit<FarmLocation, "updatedAt">) => {
+    dispatch({ type: "setLocation", payload: { updatedAt: nowIso(), ...input } });
+  }, []);
+
+  const addWeatherRecord = useCallback((input: Omit<WeatherRecord, "id" | "createdAt" | "synced">) => {
+    dispatch({ type: "addWeatherRecord", payload: { id: createId("weather"), createdAt: nowIso(), synced: false, ...input } });
+  }, []);
+
+  const replaceRiskAlerts = useCallback((input: Array<Omit<RiskAlert, "id" | "createdAt" | "acknowledged" | "synced">>) => {
+    dispatch({
+      type: "replaceRiskAlerts",
+      payload: input.map((item) => ({ id: createId("risk"), createdAt: nowIso(), acknowledged: false, synced: false, ...item })),
+    });
+  }, []);
+
+  const acknowledgeRiskAlert = useCallback((id: string) => {
+    dispatch({ type: "acknowledgeRiskAlert", payload: { id } });
+  }, []);
+
+  const addFeedProduct = useCallback((input: Omit<FeedProduct, "id" | "createdAt" | "synced">) => {
+    dispatch({ type: "addFeedProduct", payload: { id: createId("feed_product"), createdAt: nowIso(), synced: false, ...input } });
+  }, []);
+
   const updateSettings = useCallback((input: Partial<FarmSettings>) => {
     dispatch({ type: "updateSettings", payload: input });
   }, []);
@@ -242,6 +385,10 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     return {
       rootFolder: state.settings.driveRootFolder,
       generatedAt: nowIso(),
+      location: state.location,
+      weatherRecords: state.weatherRecords,
+      riskAlerts: state.riskAlerts,
+      feedProducts: state.feedProducts,
       tanks: state.tanks.map((tank) => {
         const safeName = tank.name.replace(/[^a-zA-Z0-9_-]+/g, "_");
         return {
@@ -250,7 +397,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
           inspections: state.inspections.filter((item) => item.tankId === tank.id),
           feedings: state.feedings.filter((item) => item.tankId === tank.id),
           photos: state.photos.filter((item) => item.tankId === tank.id),
-          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "sync-log.json"],
+          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "sync-log.json", "feeding-advice.json"],
         };
       }),
     };
@@ -261,15 +408,22 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       ...state,
       pendingSyncCount,
       todaysMissingTankIds,
+      latestWeather,
+      activeRiskAlerts,
       addTank,
       addInspection,
       addFeeding,
       addPhoto,
+      setLocation,
+      addWeatherRecord,
+      replaceRiskAlerts,
+      acknowledgeRiskAlert,
+      addFeedProduct,
       updateSettings,
       markSynced,
       generateDrivePayload,
     }),
-    [state, pendingSyncCount, todaysMissingTankIds, addTank, addInspection, addFeeding, addPhoto, updateSettings, markSynced, generateDrivePayload],
+    [state, pendingSyncCount, todaysMissingTankIds, latestWeather, activeRiskAlerts, addTank, addInspection, addFeeding, addPhoto, setLocation, addWeatherRecord, replaceRiskAlerts, acknowledgeRiskAlert, addFeedProduct, updateSettings, markSynced, generateDrivePayload],
   );
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>;
