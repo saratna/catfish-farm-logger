@@ -3,7 +3,7 @@ import { Alert, FlatList, Linking, Text, TextInput, TouchableOpacity, View } fro
 
 import { ScreenContainer } from "@/components/screen-container";
 import { catfishKnowledgeCards } from "@/lib/catfish-knowledge";
-import { calculateEconomicsSummary, formatCurrency, formatNumber } from "@/lib/economics";
+import { assessFeedEfficiencyProfitRisk, calculateEconomicsSummary, formatCurrency, formatNumber } from "@/lib/economics";
 import type { FarmCostCategory } from "@/lib/farm-store";
 import { formatShortDate, useFarm } from "@/lib/farm-store";
 
@@ -38,7 +38,10 @@ export default function FinanceScreen() {
 
   const scopedCosts = useMemo(() => farm.costEntries.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.costEntries, selectedTankId]);
   const scopedSales = useMemo(() => farm.saleRecords.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.saleRecords, selectedTankId]);
+  const scopedFeedings = useMemo(() => farm.feedings.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.feedings, selectedTankId]);
+  const scopedGrowthMeasurements = useMemo(() => farm.growthMeasurements.filter((item) => !selectedTankId || item.tankId === selectedTankId), [farm.growthMeasurements, selectedTankId]);
   const summary = useMemo(() => calculateEconomicsSummary(scopedCosts, scopedSales), [scopedCosts, scopedSales]);
+  const managementAlert = useMemo(() => assessFeedEfficiencyProfitRisk({ costs: scopedCosts, sales: scopedSales, feedings: scopedFeedings, growthMeasurements: scopedGrowthMeasurements }), [scopedCosts, scopedSales, scopedFeedings, scopedGrowthMeasurements]);
   const recentRows = useMemo(() => {
     const costRows = scopedCosts.slice(0, 8).map((item) => ({ id: item.id, kind: "cost" as const, title: item.label, amount: -item.amount, detail: `${categoryLabel(item.category)} · ${formatShortDate(item.createdAt)}` }));
     const saleRows = scopedSales.slice(0, 8).map((item) => ({ id: item.id, kind: "sale" as const, title: item.buyer || item.productGrade, amount: item.totalAmount, detail: `${formatNumber(item.quantityKg)} kg × ${formatCurrency(item.unitPrice)} · ${formatShortDate(item.createdAt)}` }));
@@ -117,6 +120,34 @@ export default function FinanceScreen() {
               <Metric label="Sales" value={formatCurrency(summary.totalSales)} tone="success" />
               <Metric label="Gross profit" value={formatCurrency(summary.grossProfit)} tone={summary.grossProfit >= 0 ? "success" : "error"} />
               <Metric label="Cost / kg sold" value={summary.costPerKgSold === null ? "未計算" : formatCurrency(summary.costPerKgSold)} tone="muted" />
+            </View>
+
+            <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="text-xl font-bold text-foreground">FCR・利益率アラート</Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted">給餌量、平均体重の増加、販売収支を組み合わせ、飼料効率と採算の悪化を早めに確認します。</Text>
+                </View>
+                <View className={`rounded-full px-3 py-1 ${severityBadgeClass(managementAlert.severity)}`}>
+                  <Text className="text-xs font-extrabold text-white">{severityLabel(managementAlert.severity)}</Text>
+                </View>
+              </View>
+              <Text className="mt-4 text-base font-bold text-foreground">{managementAlert.title}</Text>
+              <Text className="mt-2 text-sm leading-5 text-muted">{managementAlert.summary}</Text>
+              <View className="mt-4 flex-row flex-wrap gap-2">
+                <MiniMetric label="推定FCR" value={managementAlert.fcr === null ? "未計算" : formatNumber(managementAlert.fcr, 2)} />
+                <MiniMetric label="増加バイオマス" value={managementAlert.biomassGainKg === null ? "未計算" : `${formatNumber(managementAlert.biomassGainKg, 2)} kg`} />
+                <MiniMetric label="利益率" value={managementAlert.marginPercent === null ? "未計算" : `${formatNumber(managementAlert.marginPercent, 1)}%`} />
+                <MiniMetric label="餌代比率" value={managementAlert.feedCostSharePercent === null ? "未計算" : `${formatNumber(managementAlert.feedCostSharePercent, 1)}%`} />
+              </View>
+              {managementAlert.alerts.slice(0, 3).map((alert) => (
+                <View key={alert.id} className="mt-3 rounded-2xl bg-background p-4">
+                  <Text className={`text-sm font-extrabold ${alert.severity === "danger" ? "text-error" : alert.severity === "watch" ? "text-warning" : "text-success"}`}>{alert.title}</Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted">{alert.reason}</Text>
+                  <Text className="mt-2 text-sm leading-5 text-foreground">対応: {alert.action}</Text>
+                </View>
+              ))}
+              <Text className="mt-3 text-xs leading-5 text-muted">{managementAlert.limitation}</Text>
             </View>
 
             <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
@@ -215,6 +246,27 @@ function Input(props: { label: string; value: string; onChangeText: (value: stri
         multiline={props.multiline}
         returnKeyType="done"
       />
+    </View>
+  );
+}
+
+function severityBadgeClass(value: "normal" | "watch" | "danger") {
+  if (value === "danger") return "bg-error";
+  if (value === "watch") return "bg-warning";
+  return "bg-success";
+}
+
+function severityLabel(value: "normal" | "watch" | "danger") {
+  if (value === "danger") return "危険";
+  if (value === "watch") return "注意";
+  return "安定";
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="min-w-[47%] flex-1 rounded-2xl bg-background p-3">
+      <Text className="text-xs font-bold text-muted">{label}</Text>
+      <Text className="mt-1 text-base font-extrabold text-foreground">{value}</Text>
     </View>
   );
 }

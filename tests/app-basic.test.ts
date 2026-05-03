@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { assessCatfishWeatherRisk, assessGrowthTrend, buildFeedingAdvice, buildPhotoScreeningFromInputs } from "../lib/catfish-advisor";
+import { assessFeedEfficiencyProfitRisk } from "../lib/economics";
 
 const root = process.cwd();
 const read = (relativePath: string) => readFileSync(join(root, relativePath), "utf8");
@@ -128,6 +129,23 @@ describe("Catfish Farm Logger implementation", () => {
     const { catfishKnowledgeCards } = await import("../lib/catfish-knowledge");
     expect(catfishKnowledgeCards.length).toBeGreaterThanOrEqual(5);
     expect(catfishKnowledgeCards.every((card: { sourceUrl: string }) => card.sourceUrl.startsWith("https://"))).toBe(true);
+  });
+
+  it("flags combined FCR and margin risk", () => {
+    const alert = assessFeedEfficiencyProfitRisk({
+      costs: [{ id: "c1", category: "feed", label: "feed", amount: 9000, createdAt: "2026-01-01T00:00:00.000Z", tankId: "t1", notes: "", synced: false }],
+      sales: [{ id: "s1", buyer: "buyer", productGrade: "regular", quantityKg: 20, unitPrice: 400, totalAmount: 8000, createdAt: "2026-01-20T00:00:00.000Z", tankId: "t1", notes: "", synced: false }],
+      feedings: [{ id: "f1", tankId: "t1", createdAt: "2026-01-10T00:00:00.000Z", feedType: "pellet", feedAmountKg: 30, averageWeightG: 100, fishCount: 100, notes: "", synced: false }],
+      growthMeasurements: [
+        { id: "g1", tankId: "t1", createdAt: "2026-01-01T00:00:00.000Z", lengthCm: 12, weightG: 100, source: "manual", notes: "", synced: false },
+        { id: "g2", tankId: "t1", createdAt: "2026-01-20T00:00:00.000Z", lengthCm: 18, weightG: 200, source: "manual", notes: "", synced: false },
+      ],
+    });
+
+    expect(alert.severity).toBe("danger");
+    expect(alert.fcr).toBe(3);
+    expect(alert.marginPercent).toBeLessThan(0);
+    expect(alert.alerts.some((item) => item.id === "combined_feed_profit_danger")).toBe(true);
   });
 
 });

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { assessFeedEfficiencyProfitRisk } from "@/lib/economics";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from "react";
 
 export type Tank = {
@@ -375,6 +376,7 @@ export type DriveExport = {
     photoAssessments: PhotoAssessmentRecord[];
     costEntries: FarmCostEntry[];
     saleRecords: FarmSaleRecord[];
+    managementAlert: ReturnType<typeof assessFeedEfficiencyProfitRisk>;
     files: string[];
   }>;
 };
@@ -506,17 +508,22 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       saleRecords: state.saleRecords,
       tanks: state.tanks.map((tank) => {
         const safeName = tank.name.replace(/[^a-zA-Z0-9_-]+/g, "_");
+        const tankFeedings = state.feedings.filter((item) => item.tankId === tank.id);
+        const tankGrowthMeasurements = state.growthMeasurements.filter((item) => item.tankId === tank.id);
+        const tankCosts = state.costEntries.filter((item) => item.tankId === tank.id);
+        const tankSales = state.saleRecords.filter((item) => item.tankId === tank.id);
         return {
           folder: `${state.settings.driveRootFolder}/${safeName}`,
           tank,
           inspections: state.inspections.filter((item) => item.tankId === tank.id),
-          feedings: state.feedings.filter((item) => item.tankId === tank.id),
+          feedings: tankFeedings,
           photos: state.photos.filter((item) => item.tankId === tank.id),
-          growthMeasurements: state.growthMeasurements.filter((item) => item.tankId === tank.id),
+          growthMeasurements: tankGrowthMeasurements,
           photoAssessments: state.photoAssessments.filter((item) => item.tankId === tank.id),
-          costEntries: state.costEntries.filter((item) => item.tankId === tank.id),
-          saleRecords: state.saleRecords.filter((item) => item.tankId === tank.id),
-          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
+          costEntries: tankCosts,
+          saleRecords: tankSales,
+          managementAlert: assessFeedEfficiencyProfitRisk({ costs: tankCosts, sales: tankSales, feedings: tankFeedings, growthMeasurements: tankGrowthMeasurements }),
+          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "management-alert.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
         };
       }),
     };
