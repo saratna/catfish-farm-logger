@@ -75,3 +75,7 @@
 - [x] Generate weekly English PDF reports from local farm records
 - [x] Add weekly PDF reports to the Google Drive sync/export flow when connectivity is available
 - [x] Add automated tests for sync failure history, photo compression settings, and weekly report generation
+- [x] Add a per-failure retry button on the sync failure history screen
+- [x] Update local sync failure records when an individual retry succeeds or fails again
+- [x] Add an English quick-start tutorial for farm staff in the Philippines
+- [x] Add automated tests for individual retry handling and tutorial content

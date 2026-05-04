@@ -268,7 +268,7 @@ type FarmAction =
   | { type: "markSynced"; payload: { at: string; weeklyReportAt?: string } }
   | { type: "setSyncStatus"; payload: SyncLog }
   | { type: "addSyncFailure"; payload: SyncFailure }
-  | { type: "resolveSyncFailures"; payload: { at: string } };
+  | { type: "resolveSyncFailures"; payload: { at: string; id?: string } };
 
 const STORAGE_KEY = "catfish-farm-logger-state-v2";
 
@@ -383,7 +383,13 @@ function reducer(state: FarmState, action: FarmAction): FarmState {
     case "addSyncFailure":
       return { ...state, syncFailures: [action.payload, ...state.syncFailures].slice(0, 100) };
     case "resolveSyncFailures":
-      return { ...state, syncFailures: state.syncFailures.map((item) => item.retryStatus === "pending" ? { ...item, retryStatus: "resolved", resolvedAt: action.payload.at } : item) };
+      return {
+        ...state,
+        syncFailures: state.syncFailures.map((item) => {
+          const shouldResolve = action.payload.id ? item.id === action.payload.id : item.retryStatus === "pending";
+          return shouldResolve && item.retryStatus === "pending" ? { ...item, retryStatus: "resolved", resolvedAt: action.payload.at } : item;
+        }),
+      };
     default:
       return state;
   }
@@ -427,7 +433,7 @@ type FarmContextValue = FarmState & {
   markSynced: (weeklyReportAt?: string) => void;
   setSyncStatus: (input: SyncLog) => void;
   recordSyncFailure: (input: Omit<SyncFailure, "id" | "createdAt" | "retryStatus" | "guidance"> & { guidance?: string }) => void;
-  resolveSyncFailures: () => void;
+  resolveSyncFailures: (id?: string) => void;
   shouldCreateWeeklyReport: () => boolean;
   generateWeeklyReport: () => WeeklyReportExport;
   generateDrivePayload: () => DriveExport;
@@ -600,8 +606,8 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const resolveSyncFailures = useCallback(() => {
-    dispatch({ type: "resolveSyncFailures", payload: { at: nowIso() } });
+  const resolveSyncFailures = useCallback((id?: string) => {
+    dispatch({ type: "resolveSyncFailures", payload: { at: nowIso(), id } });
   }, []);
 
   const shouldCreateWeeklyReport = useCallback(() => {

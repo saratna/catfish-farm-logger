@@ -222,6 +222,20 @@ describe("Catfish Farm Logger implementation", () => {
     expect(alert.limitation).toContain("FCR is a simplified estimate");
   });
 
+
+  it("adds per-failure retry buttons and a Philippine staff quick guide", () => {
+    const history = read("app/(tabs)/sync-history.tsx");
+    const guide = read("app/(tabs)/tutorial.tsx");
+    const layout = read("app/(tabs)/_layout.tsx");
+    const store = read("lib/farm-store.tsx");
+    expect(history).toContain("Retry this failure");
+    expect(history).toContain("uploadFarmExportToGoogleDrive");
+    expect(store).toContain("resolveSyncFailures: (id?: string) => void");
+    expect(guide).toContain("Philippine catfish farm staff");
+    expect(guide).toContain("Do not clear app data before upload is complete");
+    expect(layout).toContain('name="tutorial"');
+  });
+
 });
 
 
