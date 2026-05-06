@@ -179,6 +179,8 @@ export type FarmSettings = {
   photoCompressionQuality: number;
   photoMaxUploadWidth: number;
   weeklyPdfReportsEnabled: boolean;
+  lineDangerAlertsEnabled: boolean;
+  lineAlertCooldownMinutes: number;
 };
 
 export type SyncLog = {
@@ -325,6 +327,8 @@ const defaultState: FarmState = {
     photoCompressionQuality: 0.55,
     photoMaxUploadWidth: 1280,
     weeklyPdfReportsEnabled: true,
+    lineDangerAlertsEnabled: false,
+    lineAlertCooldownMinutes: 180,
   },
   sync: {
     status: "waiting",

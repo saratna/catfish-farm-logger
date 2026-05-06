@@ -85,3 +85,10 @@
 - [x] Add an English health monitoring screen with risk levels, suspected disease categories, warning signs, and practical next checks
 - [x] Add disease-risk alerts into the existing offline-first sync and weekly English PDF report flow
 - [x] Add automated tests for disease knowledge base coverage, health risk scoring, and English warning text
+- [x] Add LINE real-time notifications when danger-level catfish health or disease alerts are detected
+- [x] Add secure LINE Messaging API configuration for channel access token and recipient IDs
+- [x] Add duplicate-suppression logic so the same danger alert does not spam staff repeatedly
+- [x] Add English settings/status UI explaining LINE alert delivery and offline limitations
+- [x] Add automated tests for LINE danger-alert payload generation, duplicate suppression, and UI/configuration text
+- [x] Add a LINE webhook receiver URL for LINE Developers verification and recipient ID capture
+- [x] Show recent LINE webhook userId/groupId values in the app so operators can configure LINE_RECIPIENT_IDS

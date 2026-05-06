@@ -6,6 +6,8 @@ import { invokeLLM } from "./_core/llm";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { storageGetSignedUrl, storagePut } from "./storage";
+import { sendLineDangerAlerts } from "./line-notifier";
+import { getWebhookUrlFromRequest, listRecentLineWebhookRecipients } from "./line-webhook";
 
 const photoAssessmentSchema = z.object({
   imageBase64: z.string().min(100),
@@ -14,6 +16,22 @@ const photoAssessmentSchema = z.object({
   manualLengthCm: z.number().positive().optional(),
   manualWeightG: z.number().positive().optional(),
   notes: z.string().max(1000).optional(),
+});
+
+const lineDangerAlertSchema = z.object({
+  farmName: z.string().max(120).optional(),
+  generatedAt: z.string().datetime(),
+  alerts: z.array(z.object({
+    alertKey: z.string().min(3).max(240),
+    tankName: z.string().min(1).max(120),
+    title: z.string().min(1).max(180),
+    reason: z.string().min(1).max(900),
+    action: z.string().min(1).max(900),
+    evidence: z.array(z.string().max(500)).max(8),
+    sourceLabels: z.array(z.string().max(120)).max(8),
+    severity: z.literal("danger"),
+    detectedAt: z.string().datetime(),
+  })).min(1).max(8),
 });
 
 function parseAssessment(content: string) {
@@ -43,6 +61,21 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+  }),
+
+  line: router({
+    status: publicProcedure.query(({ ctx }) => {
+      const recipients = (process.env.LINE_RECIPIENT_IDS ?? "").split(/[\n,;\s]+/).map((item) => item.trim()).filter(Boolean);
+      return {
+        configured: Boolean(process.env.LINE_CHANNEL_ACCESS_TOKEN && recipients.length > 0),
+        recipientCount: recipients.length,
+        webhookUrl: getWebhookUrlFromRequest(ctx.req),
+        recentRecipients: listRecentLineWebhookRecipients(),
+        channelSecretConfigured: Boolean(process.env.LINE_CHANNEL_SECRET),
+        message: process.env.LINE_CHANNEL_ACCESS_TOKEN && recipients.length > 0 ? "LINE danger alerts are configured on the server." : "LINE danger alerts need LINE_CHANNEL_ACCESS_TOKEN and LINE_RECIPIENT_IDS.",
+      };
+    }),
+    sendDangerAlert: publicProcedure.input(lineDangerAlertSchema).mutation(async ({ input }) => sendLineDangerAlerts(input)),
   }),
 
   photo: router({

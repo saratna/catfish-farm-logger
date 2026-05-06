@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useFarm } from "@/lib/farm-store";
+import { trpc } from "@/lib/trpc";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -28,6 +29,10 @@ export default function SettingsScreen() {
   const [photoCompressionQuality, setPhotoCompressionQuality] = useState(String(farm.settings.photoCompressionQuality));
   const [photoMaxUploadWidth, setPhotoMaxUploadWidth] = useState(String(farm.settings.photoMaxUploadWidth));
   const [weeklyPdfReportsEnabled, setWeeklyPdfReportsEnabled] = useState(farm.settings.weeklyPdfReportsEnabled);
+  const [lineDangerAlertsEnabled, setLineDangerAlertsEnabled] = useState(farm.settings.lineDangerAlertsEnabled);
+  const [lineAlertCooldownMinutes, setLineAlertCooldownMinutes] = useState(String(farm.settings.lineAlertCooldownMinutes));
+  const lineStatus = trpc.line.status.useQuery(undefined, { refetchInterval: 10000 });
+  const lineTestMutation = trpc.line.sendDangerAlert.useMutation();
 
   const saveSettings = () => {
     const parsedHour = Number(hour);
@@ -40,6 +45,7 @@ export default function SettingsScreen() {
     const parsedStaleDays = Math.max(1, Number(staleSyncWarningDays) || farm.settings.staleSyncWarningDays);
     const parsedQuality = Math.min(0.9, Math.max(0.2, Number(photoCompressionQuality) || farm.settings.photoCompressionQuality));
     const parsedWidth = Math.min(2048, Math.max(640, Number(photoMaxUploadWidth) || farm.settings.photoMaxUploadWidth));
+    const parsedLineCooldown = Math.min(1440, Math.max(15, Number(lineAlertCooldownMinutes) || farm.settings.lineAlertCooldownMinutes));
     farm.updateSettings({
       reminderHour: parsedHour,
       reminderMinute: parsedMinute,
@@ -52,8 +58,35 @@ export default function SettingsScreen() {
       photoCompressionQuality: parsedQuality,
       photoMaxUploadWidth: parsedWidth,
       weeklyPdfReportsEnabled,
+      lineDangerAlertsEnabled,
+      lineAlertCooldownMinutes: parsedLineCooldown,
     });
     Alert.alert("Settings saved", "Local settings were saved on this device.");
+  };
+
+  const sendLineTestAlert = async () => {
+    try {
+      const result = await lineTestMutation.mutateAsync({
+        farmName: driveRootFolder.trim() || "Catfish Farm Logger",
+        generatedAt: new Date().toISOString(),
+        alerts: [
+          {
+            alertKey: `manual-test-${Date.now()}`,
+            tankName: "LINE setup test",
+            title: "Manual LINE danger alert test",
+            reason: "This is a manual test from Catfish Farm Logger settings to confirm LINE push delivery.",
+            action: "If this message arrives, LINE_CHANNEL_ACCESS_TOKEN and LINE_RECIPIENT_IDS are configured correctly.",
+            evidence: ["Settings screen test button was pressed."],
+            sourceLabels: ["Catfish Farm Logger"],
+            severity: "danger",
+            detectedAt: new Date().toISOString(),
+          },
+        ],
+      });
+      Alert.alert(result.sent ? "LINE test sent" : "LINE test not sent", result.message);
+    } catch (error) {
+      Alert.alert("LINE test failed", error instanceof Error ? error.message : "The server could not send the LINE test alert.");
+    }
   };
 
   const scheduleReminder = async () => {
@@ -139,6 +172,43 @@ export default function SettingsScreen() {
             </View>
           </View>
           <ToggleRow label="Create weekly English PDF reports automatically" value={weeklyPdfReportsEnabled} onPress={() => setWeeklyPdfReportsEnabled((value) => !value)} />
+        </View>
+
+        <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+          <Text className="text-xl font-bold text-foreground">LINE danger alerts</Text>
+          <Text className="mt-1 text-sm leading-5 text-muted">Send a real-time LINE push message when the Health monitor detects danger-level disease or stress warning signs. Recipient IDs are stored only on the server.</Text>
+          <ToggleRow label="Send LINE alerts for danger-level health signs" value={lineDangerAlertsEnabled} onPress={() => setLineDangerAlertsEnabled((value) => !value)} />
+          <View className="mt-3">
+            <Text className="text-sm font-semibold text-foreground">Minimum minutes before resending the same alert</Text>
+            <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" value={lineAlertCooldownMinutes} onChangeText={setLineAlertCooldownMinutes} placeholder="180" />
+          </View>
+          <View className="mt-4 rounded-2xl border border-border bg-background p-4">
+            <Text className="text-sm font-bold text-foreground">Webhook URL for LINE Developers</Text>
+            <Text selectable className="mt-2 text-xs leading-5 text-muted">{lineStatus.data?.webhookUrl ?? "Loading webhook URL..."}</Text>
+            <Text className="mt-3 text-xs leading-5 text-muted">Paste this HTTPS URL into LINE Developers → Messaging API → Webhook settings. Then enable Use webhook and send a message to the official account or group.</Text>
+          </View>
+          <View className="mt-4 rounded-2xl border border-border bg-background p-4">
+            <Text className="text-sm font-bold text-foreground">Server LINE status</Text>
+            <Text className={`mt-2 text-sm font-semibold ${lineStatus.data?.configured ? "text-success" : "text-warning"}`}>{lineStatus.data?.message ?? "Checking LINE server configuration..."}</Text>
+            <Text className="mt-1 text-xs text-muted">Recipients configured: {lineStatus.data?.recipientCount ?? 0} · Webhook secret: {lineStatus.data?.channelSecretConfigured ? "configured" : "optional / not set"}</Text>
+          </View>
+          <View className="mt-4 rounded-2xl border border-border bg-background p-4">
+            <Text className="text-sm font-bold text-foreground">Recently captured recipient IDs</Text>
+            {lineStatus.data?.recentRecipients?.length ? (
+              lineStatus.data.recentRecipients.slice(0, 5).map((item) => (
+                <View key={`${item.kind}-${item.id}`} className="mt-3 rounded-xl border border-border p-3">
+                  <Text className="text-xs font-bold uppercase text-muted">{item.kind}</Text>
+                  <Text selectable className="mt-1 text-xs leading-5 text-foreground">{item.id}</Text>
+                  <Text className="mt-1 text-xs text-muted">Last seen: {new Date(item.receivedAt).toLocaleString()}</Text>
+                </View>
+              ))
+            ) : (
+              <Text className="mt-2 text-xs leading-5 text-muted">No IDs captured yet. After setting the webhook URL, send a LINE message to the official account or speak in the group where the official account is present.</Text>
+            )}
+          </View>
+          <TouchableOpacity className="mt-4 rounded-2xl bg-primary py-4 active:opacity-80" onPress={sendLineTestAlert} disabled={lineTestMutation.isPending}>
+            <Text className="text-center font-bold text-white">Send LINE test alert</Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity className="mt-5 rounded-2xl bg-primary py-4 active:opacity-80" onPress={saveSettings}>
