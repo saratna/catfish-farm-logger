@@ -79,3 +79,9 @@
 - [x] Update local sync failure records when an individual retry succeeds or fails again
 - [x] Add an English quick-start tutorial for farm staff in the Philippines
 - [x] Add automated tests for individual retry handling and tutorial content
+- [x] Research known catfish diseases from reliable public and academic sources and summarize early warning signs
+- [x] Add a catfish disease knowledge base covering infectious, parasitic, fungal, nutritional, and environmental health risks
+- [x] Add continuous health risk monitoring from daily farm records, water quality, feed behavior, mortality, and abnormal observations
+- [x] Add an English health monitoring screen with risk levels, suspected disease categories, warning signs, and practical next checks
+- [x] Add disease-risk alerts into the existing offline-first sync and weekly English PDF report flow
+- [x] Add automated tests for disease knowledge base coverage, health risk scoring, and English warning text

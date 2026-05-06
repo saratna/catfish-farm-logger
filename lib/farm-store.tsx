@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { assessFeedEfficiencyProfitRisk, buildImprovementChecklist, buildMonthlyTrend, rankTanksByProfitability } from "@/lib/economics";
+import { assessTankDiseaseRisk, buildFarmHealthSnapshots } from "@/lib/health-monitor";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from "react";
 
 export type Tank = {
@@ -144,7 +145,7 @@ export type RiskAlert = {
   id: string;
   createdAt: string;
   severity: "normal" | "watch" | "danger";
-  category: "heat" | "rain" | "pressure" | "humidity" | "water" | "feed";
+  category: "heat" | "rain" | "pressure" | "humidity" | "water" | "feed" | "disease";
   title: string;
   reason: string;
   action: string;
@@ -215,6 +216,7 @@ export type WeeklyReportExport = {
     salesTotal: number;
     grossProfit: number;
     activeAlertCount: number;
+    diseaseAlertCount: number;
   };
   tankSummaries: Array<{
     tankId: string;
@@ -226,6 +228,8 @@ export type WeeklyReportExport = {
     cost: number;
     sales: number;
     grossProfit: number;
+    healthSeverity: "normal" | "watch" | "danger";
+    diseaseAlerts: number;
   }>;
   alerts: Array<{ severity: string; title: string; action: string }>;
 };
@@ -451,6 +455,7 @@ export type DriveExport = {
   saleRecords: FarmSaleRecord[];
   monthlyTrend: ReturnType<typeof buildMonthlyTrend>;
   profitabilityRanking: ReturnType<typeof rankTanksByProfitability>;
+  healthSnapshots: ReturnType<typeof buildFarmHealthSnapshots>;
   weeklyReport?: WeeklyReportExport;
   tanks: Array<{
     folder: string;
@@ -463,6 +468,7 @@ export type DriveExport = {
     costEntries: FarmCostEntry[];
     saleRecords: FarmSaleRecord[];
     managementAlert: ReturnType<typeof assessFeedEfficiencyProfitRisk>;
+    healthSnapshot: ReturnType<typeof assessTankDiseaseRisk>;
     monthlyTrend: ReturnType<typeof buildMonthlyTrend>;
     improvementChecklist: ReturnType<typeof buildImprovementChecklist>;
     files: string[];
@@ -633,6 +639,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
       saleRecords: state.saleRecords,
       monthlyTrend: buildMonthlyTrend(state.costEntries, state.saleRecords, state.feedings, state.growthMeasurements),
       profitabilityRanking: rankTanksByProfitability(state.tanks, state.costEntries, state.saleRecords, state.feedings, state.growthMeasurements),
+      healthSnapshots: buildFarmHealthSnapshots({ tanks: state.tanks, inspections: state.inspections, feedings: state.feedings, photoAssessments: state.photoAssessments, growthMeasurements: state.growthMeasurements, weatherRecords: state.weatherRecords }),
       weeklyReport: state.settings.weeklyPdfReportsEnabled ? buildWeeklyReport(state) : undefined,
       tanks: state.tanks.map((tank) => {
         const safeName = tank.name.replace(/[^a-zA-Z0-9_-]+/g, "_");
@@ -641,6 +648,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
         const tankCosts = state.costEntries.filter((item) => item.tankId === tank.id);
         const tankSales = state.saleRecords.filter((item) => item.tankId === tank.id);
         const managementAlert = assessFeedEfficiencyProfitRisk({ costs: tankCosts, sales: tankSales, feedings: tankFeedings, growthMeasurements: tankGrowthMeasurements });
+        const healthSnapshot = assessTankDiseaseRisk({ tank, inspections: state.inspections, feedings: state.feedings, photoAssessments: state.photoAssessments, growthMeasurements: state.growthMeasurements, weatherRecords: state.weatherRecords });
         return {
           folder: `${state.settings.driveRootFolder}/${safeName}`,
           tank,
@@ -652,9 +660,10 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
           costEntries: tankCosts,
           saleRecords: tankSales,
           managementAlert,
+          healthSnapshot,
           monthlyTrend: buildMonthlyTrend(tankCosts, tankSales, tankFeedings, tankGrowthMeasurements),
           improvementChecklist: buildImprovementChecklist(managementAlert.alerts),
-          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "management-alert.json", "monthly-trend.json", "improvement-checklist.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
+          files: ["tank.json", "inspections.json", "feedings.json", "photos/", "growth-measurements.json", "photo-assessments.json", "costs.json", "sales.json", "economics-summary.json", "management-alert.json", "health-snapshot.json", "monthly-trend.json", "improvement-checklist.json", "growth-status.json", "sync-log.json", "feeding-advice.json"],
         };
       }),
     };
@@ -727,6 +736,8 @@ function buildWeeklyReport(state: FarmState): WeeklyReportExport {
   const costs = state.costEntries.filter((item) => isWithinRange(item.createdAt, start, end));
   const sales = state.saleRecords.filter((item) => isWithinRange(item.createdAt, start, end));
   const activeAlerts = state.riskAlerts.filter((item) => !item.acknowledged);
+  const healthSnapshots = buildFarmHealthSnapshots({ tanks: state.tanks, inspections: state.inspections, feedings: state.feedings, photoAssessments: state.photoAssessments, growthMeasurements: state.growthMeasurements, weatherRecords: state.weatherRecords });
+  const diseaseAlerts = healthSnapshots.flatMap((snapshot) => snapshot.alerts);
   const costTotal = costs.reduce((sum, item) => sum + item.amount, 0);
   const salesTotal = sales.reduce((sum, item) => sum + item.totalAmount, 0);
   return {
@@ -741,13 +752,15 @@ function buildWeeklyReport(state: FarmState): WeeklyReportExport {
       costTotal,
       salesTotal,
       grossProfit: salesTotal - costTotal,
-      activeAlertCount: activeAlerts.length,
+      activeAlertCount: activeAlerts.length + diseaseAlerts.length,
+      diseaseAlertCount: diseaseAlerts.length,
     },
     tankSummaries: state.tanks.map((tank) => {
       const tankFeedings = feedings.filter((item) => item.tankId === tank.id);
       const tankPhotos = photos.filter((item) => item.tankId === tank.id);
       const tankCosts = costs.filter((item) => item.tankId === tank.id);
       const tankSales = sales.filter((item) => item.tankId === tank.id);
+      const tankHealth = healthSnapshots.find((item) => item.tankId === tank.id);
       const cost = tankCosts.reduce((sum, item) => sum + item.amount, 0);
       const revenue = tankSales.reduce((sum, item) => sum + item.totalAmount, 0);
       return {
@@ -760,9 +773,14 @@ function buildWeeklyReport(state: FarmState): WeeklyReportExport {
         cost,
         sales: revenue,
         grossProfit: revenue - cost,
+        healthSeverity: tankHealth?.severity ?? "watch",
+        diseaseAlerts: tankHealth?.alerts.length ?? 0,
       };
     }),
-    alerts: activeAlerts.slice(0, 12).map((item) => ({ severity: item.severity, title: item.title, action: item.action })),
+    alerts: [
+      ...diseaseAlerts.map((item) => ({ severity: item.severity, title: item.title, action: item.action })),
+      ...activeAlerts.map((item) => ({ severity: item.severity, title: item.title, action: item.action })),
+    ].slice(0, 12),
   };
 }
 

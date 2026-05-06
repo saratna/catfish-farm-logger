@@ -23,7 +23,7 @@ export type RiskAssessment = {
   title: string;
   reason: string;
   action: string;
-  category: "heat" | "rain" | "pressure" | "humidity" | "water" | "feed";
+  category: "heat" | "rain" | "pressure" | "humidity" | "water" | "feed" | "disease";
 };
 
 export type FeedingAdviceInput = {

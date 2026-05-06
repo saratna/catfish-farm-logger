@@ -25,6 +25,7 @@ const MAPPING = {
   "yensign.circle.fill": "payments",
   "exclamationmark.triangle.fill": "warning",
   "book.fill": "menu-book",
+  stethoscope: "medical-services",
 } as IconMapping;
 
 /**
