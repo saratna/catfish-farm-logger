@@ -181,6 +181,10 @@ export type FarmSettings = {
   weeklyPdfReportsEnabled: boolean;
   lineDangerAlertsEnabled: boolean;
   lineAlertCooldownMinutes: number;
+  ntfyDangerAlertsEnabled: boolean;
+  ntfyServerUrl: string;
+  ntfyTopic: string;
+  ntfyToken: string;
 };
 
 export type SyncLog = {
@@ -329,6 +333,10 @@ const defaultState: FarmState = {
     weeklyPdfReportsEnabled: true,
     lineDangerAlertsEnabled: false,
     lineAlertCooldownMinutes: 180,
+    ntfyDangerAlertsEnabled: false,
+    ntfyServerUrl: "https://ntfy.sh",
+    ntfyTopic: "",
+    ntfyToken: "",
   },
   sync: {
     status: "waiting",

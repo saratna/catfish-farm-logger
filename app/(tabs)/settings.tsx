@@ -31,8 +31,14 @@ export default function SettingsScreen() {
   const [weeklyPdfReportsEnabled, setWeeklyPdfReportsEnabled] = useState(farm.settings.weeklyPdfReportsEnabled);
   const [lineDangerAlertsEnabled, setLineDangerAlertsEnabled] = useState(farm.settings.lineDangerAlertsEnabled);
   const [lineAlertCooldownMinutes, setLineAlertCooldownMinutes] = useState(String(farm.settings.lineAlertCooldownMinutes));
+  const [ntfyDangerAlertsEnabled, setNtfyDangerAlertsEnabled] = useState(farm.settings.ntfyDangerAlertsEnabled);
+  const [ntfyServerUrl, setNtfyServerUrl] = useState(farm.settings.ntfyServerUrl || "https://ntfy.sh");
+  const [ntfyTopic, setNtfyTopic] = useState(farm.settings.ntfyTopic);
+  const [ntfyToken, setNtfyToken] = useState(farm.settings.ntfyToken);
   const lineStatus = trpc.line.status.useQuery(undefined, { refetchInterval: 10000 });
   const lineTestMutation = trpc.line.sendDangerAlert.useMutation();
+  const ntfyStatus = trpc.ntfy.status.useQuery({ serverUrl: ntfyServerUrl.trim() || "https://ntfy.sh", topic: ntfyTopic.trim(), token: ntfyToken.trim() }, { refetchInterval: 10000 });
+  const ntfyTestMutation = trpc.ntfy.sendDangerAlert.useMutation();
 
   const saveSettings = () => {
     const parsedHour = Number(hour);
@@ -46,6 +52,16 @@ export default function SettingsScreen() {
     const parsedQuality = Math.min(0.9, Math.max(0.2, Number(photoCompressionQuality) || farm.settings.photoCompressionQuality));
     const parsedWidth = Math.min(2048, Math.max(640, Number(photoMaxUploadWidth) || farm.settings.photoMaxUploadWidth));
     const parsedLineCooldown = Math.min(1440, Math.max(15, Number(lineAlertCooldownMinutes) || farm.settings.lineAlertCooldownMinutes));
+    const normalizedNtfyServerUrl = ntfyServerUrl.trim() || "https://ntfy.sh";
+    try {
+      const parsedUrl = new URL(normalizedNtfyServerUrl);
+      if (!parsedUrl.protocol.startsWith("http")) {
+        throw new Error("Invalid ntfy protocol");
+      }
+    } catch {
+      Alert.alert("Invalid ntfy server URL", "Please enter a valid ntfy HTTPS URL such as https://ntfy.sh.");
+      return;
+    }
     farm.updateSettings({
       reminderHour: parsedHour,
       reminderMinute: parsedMinute,
@@ -60,6 +76,10 @@ export default function SettingsScreen() {
       weeklyPdfReportsEnabled,
       lineDangerAlertsEnabled,
       lineAlertCooldownMinutes: parsedLineCooldown,
+      ntfyDangerAlertsEnabled,
+      ntfyServerUrl: normalizedNtfyServerUrl.replace(/\/+$/g, ""),
+      ntfyTopic: ntfyTopic.trim(),
+      ntfyToken: ntfyToken.trim(),
     });
     Alert.alert("Settings saved", "Local settings were saved on this device.");
   };
@@ -86,6 +106,34 @@ export default function SettingsScreen() {
       Alert.alert(result.sent ? "LINE test sent" : "LINE test not sent", result.message);
     } catch (error) {
       Alert.alert("LINE test failed", error instanceof Error ? error.message : "The server could not send the LINE test alert.");
+    }
+  };
+
+  const sendNtfyTestAlert = async () => {
+    try {
+      const result = await ntfyTestMutation.mutateAsync({
+        farmName: driveRootFolder.trim() || "Catfish Farm Logger",
+        generatedAt: new Date().toISOString(),
+        serverUrl: ntfyServerUrl.trim() || "https://ntfy.sh",
+        topic: ntfyTopic.trim(),
+        token: ntfyToken.trim() || undefined,
+        alerts: [
+          {
+            alertKey: `manual-ntfy-test-${Date.now()}`,
+            tankName: "ntfy setup test",
+            title: "Manual ntfy danger alert test",
+            reason: "This is a manual test from Catfish Farm Logger settings to confirm ntfy topic delivery.",
+            action: "If this message arrives, the ntfy server URL, topic, and optional token are configured correctly.",
+            evidence: ["Settings screen ntfy test button was pressed."],
+            sourceLabels: ["Catfish Farm Logger"],
+            severity: "danger",
+            detectedAt: new Date().toISOString(),
+          },
+        ],
+      });
+      Alert.alert(result.sent ? "ntfy test sent" : "ntfy test not sent", result.message);
+    } catch (error) {
+      Alert.alert("ntfy test failed", error instanceof Error ? error.message : "The server could not send the ntfy test alert.");
     }
   };
 
@@ -208,6 +256,33 @@ export default function SettingsScreen() {
           </View>
           <TouchableOpacity className="mt-4 rounded-2xl bg-primary py-4 active:opacity-80" onPress={sendLineTestAlert} disabled={lineTestMutation.isPending}>
             <Text className="text-center font-bold text-white">Send LINE test alert</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+          <Text className="text-xl font-bold text-foreground">ntfy danger alerts</Text>
+          <Text className="mt-1 text-sm leading-5 text-muted">Send the same danger-level health warnings to an ntfy topic. LINE and ntfy can be enabled independently, and ntfy works with ntfy.sh or a self-hosted server.</Text>
+          <ToggleRow label="Send ntfy alerts for danger-level health signs" value={ntfyDangerAlertsEnabled} onPress={() => setNtfyDangerAlertsEnabled((value) => !value)} />
+          <View className="mt-3">
+            <Text className="text-sm font-semibold text-foreground">ntfy server URL</Text>
+            <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" autoCapitalize="none" keyboardType="url" value={ntfyServerUrl} onChangeText={setNtfyServerUrl} placeholder="https://ntfy.sh" />
+          </View>
+          <View className="mt-3">
+            <Text className="text-sm font-semibold text-foreground">Topic</Text>
+            <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" autoCapitalize="none" value={ntfyTopic} onChangeText={setNtfyTopic} placeholder="catfish-farm-alerts" />
+            <Text className="mt-2 text-xs leading-5 text-muted">Use a hard-to-guess private topic name, or configure a private topic/token on your own ntfy server.</Text>
+          </View>
+          <View className="mt-3">
+            <Text className="text-sm font-semibold text-foreground">Optional auth token</Text>
+            <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" autoCapitalize="none" secureTextEntry value={ntfyToken} onChangeText={setNtfyToken} placeholder="Bearer token for private topics" />
+          </View>
+          <View className="mt-4 rounded-2xl border border-border bg-background p-4">
+            <Text className="text-sm font-bold text-foreground">Server ntfy status</Text>
+            <Text className={`mt-2 text-sm font-semibold ${ntfyStatus.data?.configured ? "text-success" : "text-warning"}`}>{ntfyStatus.data?.message ?? "Checking ntfy configuration..."}</Text>
+            <Text className="mt-1 text-xs text-muted">Server: {ntfyStatus.data?.serverUrl ? ntfyStatus.data.serverUrl : ntfyServerUrl ? ntfyServerUrl : "https://ntfy.sh"} · Topic: {ntfyStatus.data?.topicConfigured ? "configured" : "not set"} · Token: {ntfyStatus.data?.tokenStatus ?? "not configured"}</Text>
+          </View>
+          <TouchableOpacity className="mt-4 rounded-2xl bg-primary py-4 active:opacity-80" onPress={sendNtfyTestAlert} disabled={ntfyTestMutation.isPending}>
+            <Text className="text-center font-bold text-white">Send ntfy test alert</Text>
           </TouchableOpacity>
         </View>
 

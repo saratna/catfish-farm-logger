@@ -4,14 +4,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { trpc } from "@/lib/trpc";
 import { useFarm } from "@/lib/farm-store";
 import { buildFarmHealthSnapshots } from "@/lib/health-monitor";
-import { createLineDangerAlertKey, isLineDangerAlertWithinCooldown } from "@/lib/line-danger-alert-utils";
+import { createDangerAlertKey, isDangerAlertWithinCooldown } from "@/lib/line-danger-alert-utils";
 
-const SENT_ALERTS_STORAGE_KEY = "catfish.lineDangerAlerts.sentAtByKey.v1";
+const LINE_SENT_ALERTS_STORAGE_KEY = "catfish.lineDangerAlerts.sentAtByKey.v1";
+const NTFY_SENT_ALERTS_STORAGE_KEY = "catfish.ntfyDangerAlerts.sentAtByKey.v1";
 
 type SentAlertMap = Record<string, string>;
 
-async function loadSentAlertMap(): Promise<SentAlertMap> {
-  const raw = await AsyncStorage.getItem(SENT_ALERTS_STORAGE_KEY);
+async function loadSentAlertMap(storageKey: string): Promise<SentAlertMap> {
+  const raw = await AsyncStorage.getItem(storageKey);
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as SentAlertMap;
@@ -21,17 +22,19 @@ async function loadSentAlertMap(): Promise<SentAlertMap> {
   }
 }
 
-async function saveSentAlertMap(value: SentAlertMap) {
+async function saveSentAlertMap(storageKey: string, value: SentAlertMap) {
   const entries = Object.entries(value)
     .sort((a, b) => Date.parse(b[1]) - Date.parse(a[1]))
     .slice(0, 80);
-  await AsyncStorage.setItem(SENT_ALERTS_STORAGE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  await AsyncStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(entries)));
 }
 
 export function LineDangerAlertCoordinator() {
   const farm = useFarm();
-  const mutation = trpc.line.sendDangerAlert.useMutation();
-  const isSendingRef = useRef(false);
+  const lineMutation = trpc.line.sendDangerAlert.useMutation();
+  const ntfyMutation = trpc.ntfy.sendDangerAlert.useMutation();
+  const isSendingLineRef = useRef(false);
+  const isSendingNtfyRef = useRef(false);
 
   const snapshots = useMemo(
     () =>
@@ -52,7 +55,7 @@ export function LineDangerAlertCoordinator() {
         snapshot.alerts
           .filter((alert) => alert.severity === "danger")
           .map((alert) => ({
-            alertKey: createLineDangerAlertKey(snapshot.tankId, alert.title, alert.evidence),
+            alertKey: createDangerAlertKey(snapshot.tankId, alert.title, alert.evidence),
             tankName: snapshot.tankName,
             title: alert.title,
             reason: alert.reason,
@@ -67,21 +70,21 @@ export function LineDangerAlertCoordinator() {
   );
 
   useEffect(() => {
-    if (!farm.settings.lineDangerAlertsEnabled || dangerAlerts.length === 0 || isSendingRef.current) return;
+    if (!farm.settings.lineDangerAlertsEnabled || dangerAlerts.length === 0 || isSendingLineRef.current) return;
 
     let cancelled = false;
-    async function sendNewDangerAlerts() {
-      isSendingRef.current = true;
+    async function sendNewLineDangerAlerts() {
+      isSendingLineRef.current = true;
       try {
         const now = new Date();
-        const sentMap = await loadSentAlertMap();
+        const sentMap = await loadSentAlertMap(LINE_SENT_ALERTS_STORAGE_KEY);
         const unsent = dangerAlerts
-          .filter((alert) => !isLineDangerAlertWithinCooldown(sentMap[alert.alertKey], farm.settings.lineAlertCooldownMinutes, now.getTime()))
+          .filter((alert) => !isDangerAlertWithinCooldown(sentMap[alert.alertKey], farm.settings.lineAlertCooldownMinutes, now.getTime()))
           .slice(0, 8);
 
         if (cancelled || unsent.length === 0) return;
 
-        const result = await mutation.mutateAsync({
+        const result = await lineMutation.mutateAsync({
           farmName: farm.settings.driveRootFolder || "Catfish Farm Logger",
           generatedAt: now.toISOString(),
           alerts: unsent,
@@ -93,18 +96,61 @@ export function LineDangerAlertCoordinator() {
           for (const alert of unsent) {
             sentMap[alert.alertKey] = sentAt;
           }
-          await saveSentAlertMap(sentMap);
+          await saveSentAlertMap(LINE_SENT_ALERTS_STORAGE_KEY, sentMap);
         }
       } finally {
-        isSendingRef.current = false;
+        isSendingLineRef.current = false;
       }
     }
 
-    sendNewDangerAlerts();
+    sendNewLineDangerAlerts();
     return () => {
       cancelled = true;
     };
-  }, [dangerAlerts, farm.settings.driveRootFolder, farm.settings.lineAlertCooldownMinutes, farm.settings.lineDangerAlertsEnabled, mutation]);
+  }, [dangerAlerts, farm.settings.driveRootFolder, farm.settings.lineAlertCooldownMinutes, farm.settings.lineDangerAlertsEnabled, lineMutation]);
+
+  useEffect(() => {
+    if (!farm.settings.ntfyDangerAlertsEnabled || dangerAlerts.length === 0 || isSendingNtfyRef.current) return;
+
+    let cancelled = false;
+    async function sendNewNtfyDangerAlerts() {
+      isSendingNtfyRef.current = true;
+      try {
+        const now = new Date();
+        const sentMap = await loadSentAlertMap(NTFY_SENT_ALERTS_STORAGE_KEY);
+        const unsent = dangerAlerts
+          .filter((alert) => !isDangerAlertWithinCooldown(sentMap[alert.alertKey], farm.settings.lineAlertCooldownMinutes, now.getTime()))
+          .slice(0, 8);
+
+        if (cancelled || unsent.length === 0) return;
+
+        const result = await ntfyMutation.mutateAsync({
+          farmName: farm.settings.driveRootFolder || "Catfish Farm Logger",
+          generatedAt: now.toISOString(),
+          alerts: unsent,
+          serverUrl: farm.settings.ntfyServerUrl || "https://ntfy.sh",
+          topic: farm.settings.ntfyTopic,
+          token: farm.settings.ntfyToken || undefined,
+        });
+
+        if (cancelled) return;
+        if (result.sent) {
+          const sentAt = now.toISOString();
+          for (const alert of unsent) {
+            sentMap[alert.alertKey] = sentAt;
+          }
+          await saveSentAlertMap(NTFY_SENT_ALERTS_STORAGE_KEY, sentMap);
+        }
+      } finally {
+        isSendingNtfyRef.current = false;
+      }
+    }
+
+    sendNewNtfyDangerAlerts();
+    return () => {
+      cancelled = true;
+    };
+  }, [dangerAlerts, farm.settings.driveRootFolder, farm.settings.lineAlertCooldownMinutes, farm.settings.ntfyDangerAlertsEnabled, farm.settings.ntfyServerUrl, farm.settings.ntfyToken, farm.settings.ntfyTopic, ntfyMutation]);
 
   return null;
 }

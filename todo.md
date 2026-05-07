@@ -92,3 +92,11 @@
 - [x] Add automated tests for LINE danger-alert payload generation, duplicate suppression, and UI/configuration text
 - [x] Add a LINE webhook receiver URL for LINE Developers verification and recipient ID capture
 - [x] Show recent LINE webhook userId/groupId values in the app so operators can configure LINE_RECIPIENT_IDS
+- [x] Add ntfy server-side notification sender for danger-level health alerts
+- [x] Add ntfy tRPC endpoints for status, test notification, and danger alert delivery
+- [x] Add ntfy settings fields for server URL, topic, optional token, and enable switch
+- [x] Trigger ntfy danger alerts alongside LINE while preserving duplicate suppression
+- [x] Add automated tests for ntfy payload formatting, auth headers, status masking, and duplicate suppression
+- [x] Verify TypeScript, Vitest, and project health after ntfy integration
+- [x] Save checkpoint for ntfy danger alert notification support
+

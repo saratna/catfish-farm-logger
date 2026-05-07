@@ -8,6 +8,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { storageGetSignedUrl, storagePut } from "./storage";
 import { sendLineDangerAlerts } from "./line-notifier";
 import { getWebhookUrlFromRequest, listRecentLineWebhookRecipients } from "./line-webhook";
+import { maskNtfyToken, normalizeNtfyServerUrl, normalizeNtfyTopic, sendNtfyDangerAlerts } from "./ntfy-notifier";
 
 const photoAssessmentSchema = z.object({
   imageBase64: z.string().min(100),
@@ -18,7 +19,7 @@ const photoAssessmentSchema = z.object({
   notes: z.string().max(1000).optional(),
 });
 
-const lineDangerAlertSchema = z.object({
+const dangerAlertSchema = z.object({
   farmName: z.string().max(120).optional(),
   generatedAt: z.string().datetime(),
   alerts: z.array(z.object({
@@ -32,6 +33,12 @@ const lineDangerAlertSchema = z.object({
     severity: z.literal("danger"),
     detectedAt: z.string().datetime(),
   })).min(1).max(8),
+});
+
+const ntfyDangerAlertSchema = dangerAlertSchema.extend({
+  serverUrl: z.string().url().max(240).optional(),
+  topic: z.string().trim().min(1).max(120).optional(),
+  token: z.string().max(500).optional(),
 });
 
 function parseAssessment(content: string) {
@@ -75,7 +82,24 @@ export const appRouter = router({
         message: process.env.LINE_CHANNEL_ACCESS_TOKEN && recipients.length > 0 ? "LINE danger alerts are configured on the server." : "LINE danger alerts need LINE_CHANNEL_ACCESS_TOKEN and LINE_RECIPIENT_IDS.",
       };
     }),
-    sendDangerAlert: publicProcedure.input(lineDangerAlertSchema).mutation(async ({ input }) => sendLineDangerAlerts(input)),
+    sendDangerAlert: publicProcedure.input(dangerAlertSchema).mutation(async ({ input }) => sendLineDangerAlerts(input)),
+  }),
+
+  ntfy: router({
+    status: publicProcedure.input(z.object({ serverUrl: z.string().url().max(240).optional(), topic: z.string().max(120).optional(), token: z.string().max(500).optional() }).optional()).query(({ input }) => {
+      const serverUrl = normalizeNtfyServerUrl(input?.serverUrl);
+      const topic = normalizeNtfyTopic(input?.topic);
+      const token = input?.token?.trim() || process.env.NTFY_TOKEN || "";
+      return {
+        configured: Boolean(topic),
+        serverUrl,
+        topicConfigured: Boolean(topic),
+        topic: topic ? topic.replace(/^(.{2}).*(.{2})$/, "$1…$2") : "",
+        tokenStatus: maskNtfyToken(token),
+        message: topic ? `ntfy danger alerts are configured for ${serverUrl}.` : "ntfy danger alerts need a topic in Settings or NTFY_TOPIC on the server.",
+      };
+    }),
+    sendDangerAlert: publicProcedure.input(ntfyDangerAlertSchema).mutation(async ({ input }) => sendNtfyDangerAlerts(input)),
   }),
 
   photo: router({
