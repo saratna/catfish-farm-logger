@@ -23,7 +23,9 @@
     "build:android:preview": "eas build --platform android --profile preview",
     "submit:android": "eas submit --platform android --profile production",
     "build:testflight": "eas build --platform ios --profile testflight",
-    "submit:testflight": "eas submit --platform ios --profile testflight"
+    "submit:testflight": "eas submit --platform ios --profile testflight",
+    "fdroid:prebuild": "EXPO_PUBLIC_DISTRIBUTION=fdroid npx expo prebuild --platform android --clean --no-install",
+    "fdroid:check": "EXPO_PUBLIC_DISTRIBUTION=fdroid pnpm check && EXPO_PUBLIC_DISTRIBUTION=fdroid pnpm test"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

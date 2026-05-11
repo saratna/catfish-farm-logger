@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import { ScreenContainer } from "@/components/screen-container";
 import { useFarm } from "@/lib/farm-store";
 import { trpc } from "@/lib/trpc";
+import { googleDriveSyncEnabled, getDistributionLabel } from "@/lib/distribution";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -172,7 +173,7 @@ export default function SettingsScreen() {
     <ScreenContainer className="px-5 pt-4">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
         <Text className="text-3xl font-extrabold text-foreground">Settings</Text>
-        <Text className="mt-1 text-base leading-6 text-muted">Set the daily inspection reminder, feed type choices, and Google Drive root folder name.</Text>
+        <Text className="mt-1 text-base leading-6 text-muted">Set the daily inspection reminder, feed type choices, alert channels, and local backup behavior for the {getDistributionLabel()} build.</Text>
 
         <View className="mt-5 rounded-3xl border border-border bg-surface p-5">
           <Text className="text-xl font-bold text-foreground">Daily inspection reminder</Text>
@@ -192,23 +193,24 @@ export default function SettingsScreen() {
           <TextInput className="mt-4 min-h-20 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" value={feedTypes} onChangeText={setFeedTypes} multiline />
         </View>
 
-        <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-          <Text className="text-xl font-bold text-foreground">Google Drive folder</Text>
-          <Text className="mt-1 text-sm text-muted">Each tank will be exported below this folder name.</Text>
-          <TextInput className="mt-4 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" value={driveRootFolder} onChangeText={setDriveRootFolder} />
-        </View>
+        {googleDriveSyncEnabled ? (
+          <>
+            <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+              <Text className="text-xl font-bold text-foreground">Google Drive folder</Text>
+              <Text className="mt-1 text-sm text-muted">Each tank will be exported below this folder name.</Text>
+              <TextInput className="mt-4 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" value={driveRootFolder} onChangeText={setDriveRootFolder} />
+            </View>
 
-
-        <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
-          <Text className="text-xl font-bold text-foreground">Offline sync automation</Text>
-          <Text className="mt-1 text-sm leading-5 text-muted">Recommended for Philippine farms with unstable mobile data. Records remain on this phone first, then upload when the connection is usable.</Text>
-          <ToggleRow label="Auto-upload when internet returns" value={autoSyncEnabled} onPress={() => setAutoSyncEnabled((value) => !value)} />
-          <View className="mt-3">
-            <Text className="text-sm font-semibold text-foreground">Show stale-sync warning after days</Text>
-            <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" value={staleSyncWarningDays} onChangeText={setStaleSyncWarningDays} />
-          </View>
-          <ToggleRow label="Low-bandwidth mode for slow mobile networks" value={lowBandwidthMode} onPress={() => setLowBandwidthMode((value) => !value)} />
-          <ToggleRow label="Compress photos before Google Drive upload" value={photoCompressionEnabled} onPress={() => setPhotoCompressionEnabled((value) => !value)} />
+            <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+              <Text className="text-xl font-bold text-foreground">Offline sync automation</Text>
+              <Text className="mt-1 text-sm leading-5 text-muted">Recommended for Philippine farms with unstable mobile data. Records remain on this phone first, then upload when the connection is usable.</Text>
+              <ToggleRow label="Auto-upload when internet returns" value={autoSyncEnabled} onPress={() => setAutoSyncEnabled((value) => !value)} />
+              <View className="mt-3">
+                <Text className="text-sm font-semibold text-foreground">Show stale-sync warning after days</Text>
+                <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" value={staleSyncWarningDays} onChangeText={setStaleSyncWarningDays} />
+              </View>
+              <ToggleRow label="Low-bandwidth mode for slow mobile networks" value={lowBandwidthMode} onPress={() => setLowBandwidthMode((value) => !value)} />
+              <ToggleRow label="Compress photos before Google Drive upload" value={photoCompressionEnabled} onPress={() => setPhotoCompressionEnabled((value) => !value)} />
           <View className="mt-3 flex-row gap-3">
             <View className="flex-1">
               <Text className="text-sm font-semibold text-foreground">Photo quality</Text>
@@ -219,8 +221,16 @@ export default function SettingsScreen() {
               <TextInput className="mt-2 rounded-2xl border border-border bg-background px-4 py-3 text-foreground" keyboardType="number-pad" value={photoMaxUploadWidth} onChangeText={setPhotoMaxUploadWidth} placeholder="1280" />
             </View>
           </View>
-          <ToggleRow label="Create weekly English PDF reports automatically" value={weeklyPdfReportsEnabled} onPress={() => setWeeklyPdfReportsEnabled((value) => !value)} />
-        </View>
+              <ToggleRow label="Create weekly English PDF reports automatically" value={weeklyPdfReportsEnabled} onPress={() => setWeeklyPdfReportsEnabled((value) => !value)} />
+            </View>
+          </>
+        ) : (
+          <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
+            <Text className="text-xl font-bold text-foreground">F-Droid local backup mode</Text>
+            <Text className="mt-1 text-sm leading-5 text-muted">Google Drive sync is hidden in this build. Records remain local-first; use the standard build for Google Drive backup or export data manually from a future F-Droid backup screen.</Text>
+            <ToggleRow label="Low-bandwidth mode for slow mobile networks" value={lowBandwidthMode} onPress={() => setLowBandwidthMode((value) => !value)} />
+          </View>
+        )}
 
         <View className="mt-4 rounded-3xl border border-border bg-surface p-5">
           <Text className="text-xl font-bold text-foreground">LINE danger alerts</Text>

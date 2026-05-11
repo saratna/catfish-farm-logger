@@ -1,0 +1,5 @@
+Initial F-Droid preparation release.
+
+- Added F-Droid distribution mode with Google Drive sync surfaces hidden.
+- Kept local-first farm records, inspection reminders, and ntfy danger alerts available.
+- Added F-Droid preparation documentation and metadata templates.

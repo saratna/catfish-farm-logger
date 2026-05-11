@@ -100,3 +100,10 @@
 - [x] Verify TypeScript, Vitest, and project health after ntfy integration
 - [x] Save checkpoint for ntfy danger alert notification support
 
+
+- [x] Review current Android, Expo, and dependency configuration for F-Droid compatibility
+- [x] Document F-Droid constraints including source-build requirements, proprietary service risks, and reproducible build considerations
+- [x] Add F-Droid-oriented Android build instructions and metadata preparation notes
+- [x] Add or update project documentation explaining how to build an APK suitable for F-Droid review
+- [x] Verify TypeScript, tests, and project health after F-Droid preparation changes
+- [x] Save checkpoint for F-Droid publication preparation

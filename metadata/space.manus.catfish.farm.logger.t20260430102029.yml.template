@@ -1,0 +1,41 @@
+Categories:
+  - Science & Education
+  - Sports & Health
+License: {{LICENSE_ID}}
+AuthorName: Catfish Farm Logger contributors
+WebSite: {{PUBLIC_PROJECT_WEBSITE_URL}}
+SourceCode: {{PUBLIC_SOURCE_REPO_URL}}
+IssueTracker: {{PUBLIC_ISSUE_TRACKER_URL}}
+
+AutoName: Catfish Farm Logger
+Summary: Local-first catfish farm health and feeding log
+Description: |-
+  Catfish Farm Logger helps farm staff record tank inspections, feeding, water condition notes, health observations, and danger-level alerts from a mobile phone.
+
+  The F-Droid distribution is prepared as a local-first build. Google Drive sync surfaces are disabled by setting EXPO_PUBLIC_DISTRIBUTION=fdroid, while local records, inspection reminders, and configurable ntfy danger alerts remain available.
+
+  Before submitting this metadata, replace placeholders, add a recognized FLOSS LICENSE file to the repository, and ensure the public source commit exactly matches the build recipe.
+
+RepoType: git
+Repo: {{PUBLIC_SOURCE_REPO_URL}}
+
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    commit: {{COMMIT_SHA_OR_TAG}}
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk nodejs npm
+      - npm install -g pnpm@9.12.0
+    init:
+      - pnpm install --frozen-lockfile
+    prebuild:
+      - EXPO_PUBLIC_DISTRIBUTION=fdroid pnpm exec expo prebuild --platform android --clean --no-install
+    build:
+      - cd android && ./gradlew assembleRelease
+    output: android/app/build/outputs/apk/release/app-release-unsigned.apk
+
+AutoUpdateMode: None
+UpdateCheckMode: None
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1

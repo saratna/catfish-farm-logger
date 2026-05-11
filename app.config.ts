@@ -25,6 +25,7 @@ const bundleId =
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
+const isFdroidDistribution = process.env.EXPO_PUBLIC_DISTRIBUTION === "fdroid";
 
 const env = {
   // App branding - update these values directly (do not use env vars)
@@ -33,8 +34,8 @@ const env = {
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310419663029462294/GekE7hufeEy65zCuxMpZFC/catfish_farm_logger_icon-nN3DG2UjK8yEz3iySC3M7f.png",
-  googleReversedClientId: "com.googleusercontent.apps.642943194749-jaf9ipi3lmad28i3buhnmp7u8jkjp9o0",
-  googleAndroidReversedClientId: process.env.VITE_GOOGLE_ANDROID_OAUTH_CLIENT_ID
+  googleReversedClientId: isFdroidDistribution ? "" : "com.googleusercontent.apps.642943194749-jaf9ipi3lmad28i3buhnmp7u8jkjp9o0",
+  googleAndroidReversedClientId: !isFdroidDistribution && process.env.VITE_GOOGLE_ANDROID_OAUTH_CLIENT_ID
     ? process.env.VITE_GOOGLE_ANDROID_OAUTH_CLIENT_ID.replace(/\.apps\.googleusercontent\.com$/, "").split(".").reverse().join(".")
     : "",
   scheme: schemeFromBundleId,

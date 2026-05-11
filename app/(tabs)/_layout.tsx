@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { googleDriveSyncEnabled } from "@/lib/distribution";
 
 export default function TabLayout() {
   const colors = useColors();
@@ -68,6 +69,7 @@ export default function TabLayout() {
         name="sync"
         options={{
           title: "Sync",
+          href: googleDriveSyncEnabled ? undefined : null,
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="arrow.triangle.2.circlepath" color={color} />,
         }}
       />
@@ -75,6 +77,7 @@ export default function TabLayout() {
         name="sync-history"
         options={{
           title: "Failures",
+          href: googleDriveSyncEnabled ? undefined : null,
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="exclamationmark.triangle.fill" color={color} />,
         }}
       />

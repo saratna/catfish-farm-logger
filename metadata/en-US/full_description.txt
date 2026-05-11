@@ -1,0 +1,7 @@
+Catfish Farm Logger is a local-first mobile logbook for catfish farm operations.
+
+It helps staff record tank inspections, feeding notes, water observations, fish health signs, and danger-level disease or stress warnings. The app is designed for field use where connectivity may be unstable: core records stay on the device first, and alerts can be sent through configurable notification channels.
+
+The F-Droid distribution disables Google Drive sync surfaces and the automatic Google Drive upload coordinator. This keeps the F-Droid build usable without depending on Google services. Local logging, daily inspection reminders, and configurable ntfy danger alerts remain available.
+
+Before public inclusion, the source repository must include a recognized free software license and a build recipe that matches the released source commit.
