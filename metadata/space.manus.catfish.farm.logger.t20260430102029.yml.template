@@ -1,7 +1,7 @@
 Categories:
   - Science & Education
   - Sports & Health
-License: {{LICENSE_ID}}
+License: MIT
 AuthorName: Catfish Farm Logger contributors
 WebSite: {{PUBLIC_PROJECT_WEBSITE_URL}}
 SourceCode: {{PUBLIC_SOURCE_REPO_URL}}
@@ -14,7 +14,7 @@ Description: |-
 
   The F-Droid distribution is prepared as a local-first build. Google Drive sync surfaces are disabled by setting EXPO_PUBLIC_DISTRIBUTION=fdroid, while local records, inspection reminders, and configurable ntfy danger alerts remain available.
 
-  Before submitting this metadata, replace placeholders, add a recognized FLOSS LICENSE file to the repository, and ensure the public source commit exactly matches the build recipe.
+  Before submitting this metadata, replace the remaining placeholders (URLs, commit SHA), and ensure the public source commit exactly matches the build recipe.
 
 RepoType: git
 Repo: {{PUBLIC_SOURCE_REPO_URL}}

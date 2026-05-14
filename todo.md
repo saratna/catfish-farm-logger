@@ -107,3 +107,8 @@
 - [x] Add or update project documentation explaining how to build an APK suitable for F-Droid review
 - [x] Verify TypeScript, tests, and project health after F-Droid preparation changes
 - [x] Save checkpoint for F-Droid publication preparation
+
+- [x] Add MIT LICENSE file to repository root
+- [x] Update package.json license field to "MIT"
+- [x] Update F-Droid metadata template license field to "MIT"
+- [x] Save checkpoint for MIT License addition
