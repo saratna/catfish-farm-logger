@@ -112,3 +112,10 @@
 - [x] Update package.json license field to "MIT"
 - [x] Update F-Droid metadata template license field to "MIT"
 - [x] Save checkpoint for MIT License addition
+
+## F-Droid 日本語メタデータ
+
+- [x] Create metadata/ja-JP/full_description.txt (Japanese full store description)
+- [x] Create metadata/ja-JP/short_description.txt (Japanese short description)
+- [x] Create metadata/ja-JP/changelogs/1.txt (Japanese v1 changelog)
+- [x] Save checkpoint for Japanese F-Droid metadata
