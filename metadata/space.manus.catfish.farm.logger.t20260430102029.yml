@@ -1,0 +1,46 @@
+Categories:
+  - Science & Education
+  - Sports & Health
+License: MIT
+AuthorName: saratna
+WebSite: https://github.com/saratna/catfish-farm-logger
+SourceCode: https://github.com/saratna/catfish-farm-logger
+IssueTracker: https://github.com/saratna/catfish-farm-logger/issues
+
+AutoName: Catfish Farm Logger
+Summary: Local-first catfish farm health and feeding log
+Description: |-
+  Catfish Farm Logger helps farm staff record tank inspections, feeding, water
+  condition notes, health observations, and danger-level alerts from a mobile phone.
+
+  The F-Droid distribution is a local-first build. Google Drive sync surfaces are
+  disabled (EXPO_PUBLIC_DISTRIBUTION=fdroid), while local records, inspection
+  reminders, and configurable ntfy danger alerts remain fully available.
+
+  All data is stored on-device using AsyncStorage. No account or internet connection
+  is required for core functionality. ntfy notifications are optional and use a
+  server URL you configure yourself.
+
+RepoType: git
+Repo: https://github.com/saratna/catfish-farm-logger
+
+Builds:
+  - versionName: '1.0.0'
+    versionCode: 1
+    commit: f18a24c9692efa789671fae285dc1fc78dac56df
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk nodejs npm
+      - npm install -g pnpm@9.12.0
+    init:
+      - pnpm install --frozen-lockfile
+    prebuild:
+      - EXPO_PUBLIC_DISTRIBUTION=fdroid pnpm exec expo prebuild --platform android --clean --no-install
+    build:
+      - cd android && ./gradlew assembleRelease
+    output: android/app/build/outputs/apk/release/app-release-unsigned.apk
+
+AutoUpdateMode: None
+UpdateCheckMode: None
+CurrentVersion: 1.0.0
+CurrentVersionCode: 1
