@@ -1,0 +1,1 @@
+Initial release. Local-first tank inspection logging, feeding records, water quality notes, health observations, and optional ntfy danger alerts.

@@ -1,0 +1,13 @@
+Catfish Farm Logger helps farm staff record daily catfish tank inspections, feeding schedules, water quality notes, health observations, and danger-level alerts — all from a mobile phone, even without an internet connection.
+
+Designed for catfish farms in the Philippines where internet connectivity can be intermittent, the app stores all data locally on the device using AsyncStorage. No account or internet connection is required for core functionality.
+
+Key features:
+• Daily tank inspection logging (water temperature, pH, dissolved oxygen, turbidity)
+• Feeding records with quantity and feed type
+• Health observation notes and danger-level alerts
+• Configurable push notifications via ntfy (optional, self-hosted or public server)
+• Works fully offline — data stays on your device
+• Simple, fast interface optimised for one-handed use in the field
+
+F-Droid build note: Google Drive sync is disabled in this build. All other features, including local records, inspection reminders, and ntfy danger alerts, are fully available.
